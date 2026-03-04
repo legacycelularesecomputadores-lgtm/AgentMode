@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agente Dev</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+  <!-- JSZip para download de projeto como ZIP -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+
+<div class="app-root" id="appRoot">
+
+  <!-- ── SIDEBAR DE CONVERSAS ──────────────────────────────────────── -->
+  <aside class="conv-sidebar" id="convSidebar">
+    <div class="conv-sidebar-top">
+      <div class="conv-brand">
+        <span class="brand-dot"></span>
+        <span class="brand-name">Agente Dev</span>
+        <span class="brand-ver">v2.0</span>
+      </div>
+      <button class="conv-toggle-btn" id="btnToggleConvSidebar" title="Recolher painel">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+    </div>
+
+    <button class="conv-nova-btn" id="btnNovaConversa">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Nova conversa
+    </button>
+
+    <div class="conv-lista-wrap">
+      <div class="conv-lista" id="convLista">
+        <div class="conv-lista-vazio">Nenhuma conversa ainda.<br>Envie uma mensagem para começar.</div>
+      </div>
+    </div>
+
+    <div class="conv-sidebar-bottom">
+      <button class="conv-bottom-btn" id="btnConvLimparTudo" title="Apagar todo o histórico">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+        Apagar tudo
+      </button>
+    </div>
+  </aside>
+
+  <!-- ── COLUNA DIREITA ───────────────────────────────────────────── -->
+  <div class="app-main" id="appMain">
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="btn-icon topbar-menu-btn" id="btnTopbarMenu" title="Conversas">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="topbar-controls">
+        <div class="ctrl-group">
+          <label class="ctrl-label">tipo</label>
+          <div class="seg-ctrl">
+            <button class="seg-btn" id="btnLocal" data-tipo="local">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>local
+            </button>
+            <button class="seg-btn active" id="btnNuvem" data-tipo="nuvem">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>nuvem
+            </button>
+          </div>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-label">provedor</label>
+          <div class="select-wrap provedor-wrap">
+            <select id="selProvedor"><option value="groq">groq</option></select>
+            <span class="select-arrow">▾</span>
+          </div>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-label">modelo</label>
+          <div class="select-wrap">
+            <select id="selModelo"><option>carregando…</option></select>
+            <span class="select-arrow">▾</span>
+          </div>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-label">modo</label>
+          <div class="seg-ctrl" id="segModo">
+            <button class="seg-btn" id="btnModoChat" data-modo="chat" title="Somente conversa">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>chat
+            </button>
+            <button class="seg-btn active" id="btnModoAgente" data-modo="agente" title="Agente com ferramentas">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>agente
+            </button>
+            <button class="seg-btn" id="btnModoPlanejador" data-modo="planejador" title="Planejamento estruturado">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>planejar
+            </button>
+          </div>
+        </div>
+        <button class="btn-projeto" id="btnProjeto" title="Nome do projeto (clique para alterar)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          <span id="projetoNome">Meu Projeto</span>
+        </button>
+        <button class="btn-icon btn-explorer-toggle" id="btnExplorer" title="Arquivos virtuais (Alt+E)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h6l2 3h10v13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3z"/><line x1="3" y1="9" x2="21" y2="9"/></svg>
+        </button>
+        <div class="status-pill" id="statusPill">
+          <span class="status-dot" id="statusDot"></span>
+          <span id="statusTxt">pronto</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- CREDENCIAIS -->
+    <div class="creds-bar" id="credsBar" style="display:none">
+      <div class="creds-inner">
+        <div id="credsSavedKeys" class="creds-field-group" style="display:none">
+          <label class="creds-label">chaves salvas</label>
+          <div class="select-wrap" style="min-width:130px">
+            <select id="selSavedKey"><option value="">— selecionar —</option></select>
+            <span class="select-arrow">▾</span>
+          </div>
+          <button class="btn-icon btn-del-key" id="btnDeletarKey" title="Remover chave">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div id="credsKey" class="creds-field-group" style="display:none">
+          <label id="credsKeyLabel" class="creds-label">API Key</label>
+          <div class="key-input-wrap">
+            <input type="password" id="inputApiKey" class="creds-input" placeholder="cole sua API key aqui" autocomplete="off" />
+            <button class="btn-eye" id="btnMostrarKey" title="Mostrar/ocultar">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </div>
+        <div id="credsKeyName" class="creds-field-group" style="display:none">
+          <label class="creds-label">nome (opcional)</label>
+          <input type="text" id="inputKeyName" class="creds-input creds-input-name" placeholder="ex: trabalho" autocomplete="off" />
+        </div>
+        <div id="credsUrl" class="creds-field-group" style="display:none">
+          <label class="creds-label">URL base</label>
+          <input type="text" id="inputApiUrl" class="creds-input creds-input-url" placeholder="https://api.exemplo.com/v1" autocomplete="off" />
+        </div>
+        <button class="btn-save-login" id="btnSalvarLogin">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          salvar
+        </button>
+        <div class="creds-projeto" id="credsProjetoInfo"></div>
+      </div>
+    </div>
+
+    <!-- WORKSPACE -->
+    <div class="main-layout" id="mainLayout">
+
+      <!-- SIDEBAR EXPLORADOR (Virtual FS) -->
+      <aside class="sidebar collapsed" id="sidebar">
+        <div class="sidebar-header">
+          <span class="sidebar-title">arquivos virtuais</span>
+          <button class="btn-icon" id="btnSidebarRefresh" title="Atualizar">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          </button>
+        </div>
+        <div class="sidebar-tree" id="sidebarTree">
+          <div class="sidebar-empty" style="text-align:center;padding:20px 10px;">
+            <div style="font-size:24px;margin-bottom:8px;">📁</div>
+            <div style="font-size:11px;color:var(--text2);">Nenhum arquivo criado ainda.</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:4px;">Os arquivos criados pelo agente<br>aparecerão aqui para download.</div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- CHAT -->
+      <div class="center-col">
+        <main class="chat-area" id="chatArea">
+          <div class="chat-inner" id="chatInner">
+            <div class="welcome-msg">
+              <div class="welcome-icon">⬡</div>
+              <p>Escolha o provedor, cole sua API Key e envie uma tarefa.</p>
+              <p class="welcome-hint">Exemplo: <em>cria um jogo da cobrinha em HTML</em></p>
+            </div>
+          </div>
+        </main>
+        <footer class="footer">
+          <div class="refs-bar" id="refsBar"></div>
+          <div class="file-autocomplete" id="fileAutocomplete"></div>
+          <div class="input-row">
+            <div class="input-wrap">
+              <textarea id="inputMsg" class="msg-input"
+                placeholder="Digite sua tarefa… Use @ para referenciar um arquivo do projeto"
+                rows="1" autocomplete="off" spellcheck="true"></textarea>
+            </div>
+            <button class="btn-send" id="btnEnviar">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </button>
+            <button class="btn-stop" id="btnParar" disabled>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+            </button>
+          </div>
+          <div class="footer-hint">
+            <span>projeto: <em id="projetoPath">(virtual)</em></span>
+            <span class="hint-sep">·</span>
+            <span>Enter envia · Shift+Enter nova linha · <kbd>@</kbd> referencia arquivo · arquivos ficam em memória e podem ser baixados como ZIP</span>
+          </div>
+        </footer>
+      </div>
+
+      <!-- EDITOR LATERAL -->
+      <div class="editor-panel" id="editorPanel">
+        <div class="editor-header">
+          <div class="editor-tabs" id="editorTabs"></div>
+          <div class="editor-header-actions">
+            <button class="btn-editor-save" id="btnEditorSave" title="Salvar no Virtual FS (Ctrl+S)">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>salvar
+            </button>
+            <button class="btn-icon" id="btnEditorClose" title="Fechar editor">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="editor-path" id="editorPath"></div>
+        <div class="editor-body">
+          <div class="editor-gutter" id="editorGutter"></div>
+          <div class="editor-code-wrap">
+            <textarea class="editor-textarea" id="editorTextarea" spellcheck="false" autocorrect="off" autocapitalize="off"></textarea>
+            <pre class="editor-highlight" id="editorHighlight" aria-hidden="true"><code id="editorHighlightCode"></code></pre>
+          </div>
+        </div>
+        <div class="editor-status" id="editorStatus"></div>
+      </div>
+
+    </div><!-- /main-layout -->
+  </div><!-- /app-main -->
+</div><!-- /app-root -->
+
+<script src="app.js"></script>
+</body>
+</html>
