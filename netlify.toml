@@ -1,0 +1,27 @@
+[build]
+  publish = "src"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# ── Edge Functions ─────────────────────────────────────────────────
+[[edge_functions]]
+  path = "/api/enviar"
+  function = "enviar"
+
+# ── Redirects para functions normais ──────────────────────────────
+[[redirects]]
+  from = "/api/modelos/:fonte"
+  to = "/.netlify/functions/modelos?fonte=:fonte"
+  status = 200
+
+[[redirects]]
+  from = "/api/status"
+  to = "/.netlify/functions/status"
+  status = 200
+
+# ── SPA fallback ───────────────────────────────────────────────────
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
