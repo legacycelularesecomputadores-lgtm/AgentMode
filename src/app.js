@@ -1,182 +1,165 @@
-// app.js — Agente Dev (Versão Netlify)
-// Backend Python → Netlify Edge Functions + Virtual Filesystem
+// app.js — Agente Dev (GitHub + Netlify Functions)
 
-const API = "";  // URLs relativas — funciona em qualquer domínio
+// ── Storage: memória + localStorage como bônus ────────────────────────────────
+const _store = (() => {
+  const mem = {};
+  let _ls = null;
+  try {
+    localStorage.setItem("__probe", "1");
+    localStorage.removeItem("__probe");
+    _ls = localStorage;
+    // Copia tudo do localStorage para memória
+    for (let i = 0; i < _ls.length; i++) {
+      const k = _ls.key(i);
+      if (k) mem[k] = _ls.getItem(k);
+    }
+  } catch {}
+  return {
+    set(k, v) {
+      mem[k] = String(v);
+      try { _ls?.setItem(k, String(v)); } catch {}
+    },
+    get(k) { return mem[k] ?? null; },
+    remove(k) {
+      delete mem[k];
+      try { _ls?.removeItem(k); } catch {}
+    },
+    getItem(k) { return this.get(k); },
+    setItem(k, v) { this.set(k, v); },
+    removeItem(k) { this.remove(k); },
+    key(i) { return Object.keys(mem)[i] ?? null; },
+    get length() { return Object.keys(mem).length; },
+  };
+})();
 
-// ── PROVEDORES (apenas nuvem disponível no Netlify) ──────────────────────────
-const PROVEDORES = {
-  local: [
-    { value: "ollama",   label: "Ollama (local)" },
-    { value: "lmstudio", label: "LM Studio (local)" },
-  ],
-  nuvem: [
-    { value: "groq",       label: "🔑 Groq (com API Key)" },
-    { value: "gemini",     label: "🔑 Gemini (com API Key)" },
-    { value: "openrouter", label: "🔑 OpenRouter (grátis + pago)" },
-    { value: "scitely",    label: "🆓 Scitely (grátis ilimitado)" },
-    { value: "llmapi",     label: "🆓 LLM API (200+ modelos grátis)" },
-    { value: "puter",      label: "🆓 Puter AI (sem key, user-pays)" },
-    { value: "custom",     label: "Custom API" },
-  ],
-};
+const LS = "agente_dev_";
+const lsSet = (k, v) => _store.set(LS + k, v);
+const lsGet = (k)    => _store.get(LS + k) || "";
 
-// ── MODELOS ───────────────────────────────────────────────────────────────────
-const MODELOS_FRONTEND = {
-  ollama:   ["llama3.2:3b","llama3.1:8b","mistral:7b","neural-chat:7b"],
-  lmstudio: ["local-model"],
+// ── Provedores ────────────────────────────────────────────────────────────────
+const PROVEDORES = [
+  { value: "groq",       label: "⚡ Groq (rápido, grátis)" },
+  { value: "openrouter", label: "🌐 OpenRouter (grátis + pago)" },
+  { value: "gemini",     label: "🔷 Gemini" },
+  { value: "scitely",    label: "🔑 Scitely" },
+  { value: "llmapi",     label: "🔑 LLM API" },
+  { value: "puter",      label: "🔑 Puter AI" },
+  { value: "custom",     label: "⚙️ Custom API" },
+];
+
+const MODELOS = {
   groq: [
-    "llama-3.3-70b-versatile","llama-3.1-70b-versatile",
-    "mixtral-8x7b-32768","gemma2-9b-it","llama-3.1-8b-instant",
+    "llama-3.3-70b-versatile",
+    "llama-3.1-70b-versatile",
+    "llama-3.1-8b-instant",
+    "mixtral-8x7b-32768",
+    "gemma2-9b-it",
     "deepseek-r1-distill-llama-70b",
   ],
   gemini: [
-    "gemini-2.0-flash","gemini-2.0-flash-lite","gemini-1.5-pro","gemini-1.5-flash",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-1.5-pro",
+    "gemini-1.5-flash",
   ],
   openrouter: [
-    "openrouter/free","openrouter/optimus-alpha","openrouter/quasar-alpha",
-    "deepseek/deepseek-r1:free","deepseek/deepseek-chat-v3-0324:free",
+    "deepseek/deepseek-r1:free",
+    "deepseek/deepseek-chat-v3-0324:free",
     "meta-llama/llama-3.3-70b-instruct:free",
-    "openai/gpt-oss-120b:free",
-    "qwen/qwen3-235b-a22b:free","qwen/qwq-32b:free","qwen/qwen2.5-coder-32b-instruct:free",
-    "mistralai/mistral-small-3.1-24b-instruct:free","mistralai/mistral-7b-instruct:free",
-    "anthropic/claude-3.5-sonnet","openai/gpt-4o","openai/gpt-4o-mini",
-    "google/gemini-2.0-flash-001","mistralai/mistral-large",
+    "mistralai/mistral-small-3.1-24b-instruct:free",
+    "qwen/qwq-32b:free",
+    "qwen/qwen2.5-coder-32b-instruct:free",
+    "google/gemini-2.0-flash-001",
+    "anthropic/claude-3.5-sonnet",
+    "openai/gpt-4o",
+    "openai/gpt-4o-mini",
   ],
   scitely: [
-    "deepseek-chat","deepseek-reasoner","qwen-plus","qwen-max",
-    "kimi-latest","glm-4-flash","llama-3.3-70b","mixtral-8x7b",
+    "deepseek-v3",
+    "deepseek-r1",
+    "qwen-plus",
+    "qwen-max",
+    "qwen-turbo",
+    "kimi-latest",
+    "glm-4-flash",
+    "glm-4",
+    "llama-3.3-70b",
+    "mixtral-8x7b",
   ],
   llmapi: [
-    "gpt-4o-mini","gpt-4o","gpt-4.1-nano","gpt-4.1-mini","gpt-4.1",
-    "gpt-5-nano","gpt-5-mini","gpt-5","o3-mini","o3",
-    "claude-3-haiku-20240307","claude-3-5-sonnet-20241022","claude-3-7-sonnet-20250219",
-    "gemini-2.0-flash","gemini-2.5-flash","qwen-max","qwen-plus","grok-3","grok-3-mini",
+    "gpt-4o-mini",
+    "gpt-4o",
+    "claude-3-5-sonnet-20241022",
+    "gemini-2.0-flash",
+    "qwen-max",
+    "grok-3",
   ],
   puter: [
-    "gpt-5-nano","gpt-5-mini","gpt-5","gpt-4.1-nano","gpt-4o","gpt-4o-mini",
-    "claude-sonnet-4-5","claude-haiku-4-5",
-    "google/gemini-2.5-flash","google/gemini-2.0-flash",
+    "gpt-4o",
+    "gpt-4o-mini",
+    "claude-sonnet-4-5",
+    "claude-haiku-4-5",
+    "google/gemini-2.0-flash",
     "meta-llama/llama-3.3-70b-instruct",
-    "deepseek/deepseek-chat-v3-0324","deepseek/deepseek-r1",
-    "mistralai/mistral-large-2512","grok-4-1-fast","grok-3","z-ai/glm-5",
+    "deepseek/deepseek-r1",
+    "grok-3",
   ],
-  custom: ["gpt-4o","gpt-4o-mini","claude-3-5-sonnet-20241022"],
+  custom: [],
 };
 
-const PRECISA_API_KEY   = new Set(["openrouter","custom","groq","gemini","scitely","llmapi","puter"]);
-const PRECISA_URL       = new Set(["custom"]);
-const GRATIS_AUTOMATICO = new Set(["ollama","lmstudio"]);
-
 const LABELS_KEY = {
-  groq:       "Groq API Key",
-  gemini:     "Gemini API Key",
-  openrouter: "OpenRouter API Key",
-  scitely:    "Scitely API Key — platform.scitely.com (grátis)",
-  llmapi:     "LLM API Key — app.llmapi.ai (grátis)",
-  puter:      "Puter Auth Token — puter.com/dashboard (grátis, user-pays)",
+  groq:       "Groq API Key — console.groq.com (grátis)",
+  gemini:     "Gemini API Key — aistudio.google.com (grátis)",
+  openrouter: "OpenRouter API Key — openrouter.ai/keys",
+  scitely:    "Scitely API Key — platform.scitely.com",
+  llmapi:     "LLM API Key — app.llmapi.ai",
+  puter:      "Puter Auth Token — puter.com/dashboard",
   custom:     "API Key",
 };
 
-const LS_PREFIX = "agente_dev_";
-function lsSet(k, v) { try { localStorage.setItem(LS_PREFIX + k, v); } catch(_) {} }
-function lsGet(k)    { try { return localStorage.getItem(LS_PREFIX + k) || ""; } catch(_) { return ""; } }
+const PRECISA_URL = new Set(["custom"]);
 
 // ── Estado ────────────────────────────────────────────────────────────────────
-let tipoAtual      = "nuvem";      // Netlify: nuvem por padrão
-let provedorAtual  = "groq";
-let modeloAtual    = "";
-let gerando        = false;
-let modoAgente     = "agente";
-let apiKeyAtual    = "";
-let _abortController = null;       // Para parar geração
+let provedorAtual = "groq";
+let modeloAtual   = "";
+let gerando       = false;
+let _abort        = null;
+let _virtualFS    = {};
+let _todos        = [];
+let _projetoNome  = lsGet("projeto_nome") || "Meu Projeto";
+let _llmHist      = [];
 
-// ── Virtual Filesystem ────────────────────────────────────────────────────────
-let _virtualFS     = {};           // { [caminho]: conteudo }
-let _projetoNome   = "Meu Projeto";
+// ── DOM ───────────────────────────────────────────────────────────────────────
+const selProvedor    = document.getElementById("selProvedor");
+const selModelo      = document.getElementById("selModelo");
+const chatInner      = document.getElementById("chatInner");
+const inputMsg       = document.getElementById("inputMsg");
+const btnEnviar      = document.getElementById("btnEnviar");
+const btnParar       = document.getElementById("btnParar");
+const credsBar       = document.getElementById("credsBar");
+const credsKey       = document.getElementById("credsKey");
+const credsUrl       = document.getElementById("credsUrl");
+const credsKeyLabel  = document.getElementById("credsKeyLabel");
+const inputApiKey    = document.getElementById("inputApiKey");
+const inputApiUrl    = document.getElementById("inputApiUrl");
+const btnMostrarKey  = document.getElementById("btnMostrarKey");
+const btnSalvarLogin = document.getElementById("btnSalvarLogin");
+const statusDot      = document.getElementById("statusDot");
+const statusTxt      = document.getElementById("statusTxt");
 
-// ── LLM Histórico (enviado com cada request) ──────────────────────────────────
-let _llmHistorico  = [];           // [{role, content}] últimas N msgs
-
-// ── DOM refs ──────────────────────────────────────────────────────────────────
-const btnLocal        = document.getElementById("btnLocal");
-const btnNuvem        = document.getElementById("btnNuvem");
-const selProvedor     = document.getElementById("selProvedor");
-const selModelo       = document.getElementById("selModelo");
-const chatInner       = document.getElementById("chatInner");
-const inputMsg        = document.getElementById("inputMsg");
-const btnEnviar       = document.getElementById("btnEnviar");
-const btnParar        = document.getElementById("btnParar");
-const credsBar        = document.getElementById("credsBar");
-const credsKey        = document.getElementById("credsKey");
-const credsUrl        = document.getElementById("credsUrl");
-const credsKeyLabel   = document.getElementById("credsKeyLabel");
-const inputApiKey     = document.getElementById("inputApiKey");
-const inputApiUrl     = document.getElementById("inputApiUrl");
-const btnMostrarKey   = document.getElementById("btnMostrarKey");
-const btnSalvarLogin  = document.getElementById("btnSalvarLogin");
-const statusDot       = document.getElementById("statusDot");
-const statusTxt       = document.getElementById("statusTxt");
-
-// ── STATUS API NO HEADER ──────────────────────────────────────────────────────
-let statusAPIElement = null;
-
-function criarStatusAPI() {
-  const container = document.createElement("div");
-  container.id = "status-api-container";
-  container.style.cssText = `
-    display: flex; align-items: center; gap: 12px; padding: 0 12px;
-    border-left: 1px solid var(--border); margin-left: auto;
-    font-size: 11px; color: var(--text2); font-family: var(--font-mono);
-  `;
-  const nomeAPI = document.createElement("div");
-  nomeAPI.id = "status-api-nome";
-  nomeAPI.textContent = "nuvem";
-  const indicador = document.createElement("div");
-  indicador.id = "status-api-indicador";
-  indicador.style.cssText = "display: none; align-items: center; gap: 6px; font-size: 9px;";
-  indicador.innerHTML = `<span id="api-status">automático</span>`;
-  container.appendChild(nomeAPI);
-  container.appendChild(indicador);
-  return container;
-}
-
-function atualizarStatusAPI() {
-  if (!statusAPIElement) return;
-  const nomeEl     = statusAPIElement.querySelector("#status-api-nome");
-  const indicadorEl = statusAPIElement.querySelector("#status-api-indicador");
-  const statusEl   = indicadorEl.querySelector("#api-status");
-  nomeEl.textContent = provedorAtual.toUpperCase();
-  if (GRATIS_AUTOMATICO.has(provedorAtual)) {
-    indicadorEl.style.display = "flex";
-    statusEl.textContent = "⚠ local indisponível no Netlify";
-    statusEl.style.color = "var(--red)";
-  } else if (PRECISA_API_KEY.has(provedorAtual)) {
-    indicadorEl.style.display = "flex";
-    statusEl.textContent = lsGet(`key_${provedorAtual}`) ? "⚙️ key salva" : "⚠ sem key";
-    statusEl.style.color = lsGet(`key_${provedorAtual}`) ? "var(--text2)" : "var(--orange)";
-  } else {
-    indicadorEl.style.display = "none";
-  }
-}
-
-function setTipo(tipo) {
-  tipoAtual = tipo;
-  btnLocal.classList.toggle("active", tipo === "local");
-  btnNuvem.classList.toggle("active", tipo === "nuvem");
-  const opts = PROVEDORES[tipo];
-  selProvedor.innerHTML = opts.map(o => `<option value="${o.value}">${o.label}</option>`).join("");
-  provedorAtual = opts[0].value;
+// ── Provedores ────────────────────────────────────────────────────────────────
+function initProvedor() {
+  selProvedor.innerHTML = PROVEDORES.map(o =>
+    `<option value="${o.value}">${o.label}</option>`).join("");
+  provedorAtual = lsGet("provedor_atual") || "groq";
+  if (!PROVEDORES.find(p => p.value === provedorAtual)) provedorAtual = "groq";
   selProvedor.value = provedorAtual;
   onProvedorMudou();
 }
 
-btnLocal.addEventListener("click", () => {
-  setTipo("local");
-  addAviso("⚠ Provedores locais (Ollama/LM Studio) não funcionam no Netlify — requerem backend Python local. Use provedores de nuvem.");
-});
-btnNuvem.addEventListener("click", () => setTipo("nuvem"));
 selProvedor.addEventListener("change", () => {
   provedorAtual = selProvedor.value;
+  lsSet("provedor_atual", provedorAtual);
   onProvedorMudou();
 });
 
@@ -186,147 +169,123 @@ function onProvedorMudou() {
   atualizarStatusAPI();
 }
 
-// ── MOSTRAR/ESCONDER CAMPO DE API KEY ─────────────────────────────────────────
+// ── Credenciais ───────────────────────────────────────────────────────────────
 function mostrarCredsBar(prov) {
-  if (GRATIS_AUTOMATICO.has(prov)) {
-    credsBar.style.display = "none";
-    return;
-  }
-  const precKey = PRECISA_API_KEY.has(prov);
-  const precUrl = PRECISA_URL.has(prov);
-  credsBar.style.display = (precKey || precUrl) ? "block" : "none";
-  credsKey.style.display = precKey ? "flex" : "none";
-  credsUrl.style.display = precUrl ? "flex" : "none";
-  const credsKeyNameEl = document.getElementById("credsKeyName");
-  if (credsKeyNameEl) credsKeyNameEl.style.display = precKey ? "flex" : "none";
-  if (precKey) {
-    credsKeyLabel.textContent = LABELS_KEY[prov] || "API Key";
+  if (credsBar) credsBar.style.display = "block";
+  if (credsKey) credsKey.style.display = "flex";
+  if (credsUrl) credsUrl.style.display = PRECISA_URL.has(prov) ? "flex" : "none";
+  if (credsKeyLabel) credsKeyLabel.textContent = LABELS_KEY[prov] || "API Key";
+  const saved = lsGet(`key_${prov}`);
+  if (inputApiKey) {
     inputApiKey.value = "";
-    inputApiKey.type = "password";
-    const savedKey = lsGet(`key_${prov}`);
-    inputApiKey.placeholder = savedKey ? "••• salva ✓" : "cole aqui";
+    inputApiKey.placeholder = saved ? "••• salva ✓" : "cole aqui";
   }
-  if (precUrl) {
-    inputApiUrl.value = lsGet(`url_${prov}`) || "";
-  }
+  if (PRECISA_URL.has(prov) && inputApiUrl) inputApiUrl.value = lsGet(`url_${prov}`) || "";
   renderChavesSalvas(prov);
 }
 
 btnMostrarKey?.addEventListener("click", () => {
-  const v = inputApiKey.type === "text";
-  inputApiKey.type = v ? "password" : "text";
+  if (inputApiKey) inputApiKey.type = inputApiKey.type === "text" ? "password" : "text";
 });
 
 btnSalvarLogin?.addEventListener("click", () => {
-  const key  = inputApiKey.value.trim();
-  const url  = inputApiUrl.value.trim();
+  const key  = inputApiKey?.value.trim();
+  const url  = inputApiUrl?.value.trim();
   const nome = document.getElementById("inputKeyName")?.value.trim() || "";
 
-  if (PRECISA_API_KEY.has(provedorAtual) && !key) {
-    addAviso("⚠ Cole a API Key antes de salvar.");
-    return;
-  }
+  if (!key) { addAviso("⚠ Cole a API Key antes de salvar."); return; }
 
-  if (key && nome) {
+  if (nome) {
     salvarChaveNomeada(provedorAtual, nome, key, url);
     addAviso(`✓ Chave "${nome}" salva`);
   } else {
-    if (key) lsSet(`key_${provedorAtual}`, key);
+    lsSet(`key_${provedorAtual}`, key);
     if (url) lsSet(`url_${provedorAtual}`, url);
-    addAviso("✓ Salvo");
+    addAviso("✓ Chave salva");
   }
+  if (inputApiKey) { inputApiKey.value = ""; inputApiKey.placeholder = "••• salva ✓"; }
   if (document.getElementById("inputKeyName")) document.getElementById("inputKeyName").value = "";
   atualizarStatusAPI();
   renderChavesSalvas(provedorAtual);
+  // Recarrega modelos da API agora que temos a chave
+  carregarModelosDaAPI(provedorAtual);
 });
 
-// ── CARREGAR MODELOS (apenas frontend — sem backend local) ────────────────────
-async function carregarModelos(prov) {
-  selModelo.innerHTML = "";
+// ── Modelos ───────────────────────────────────────────────────────────────────
+function carregarModelos(prov) {
+  const lista = MODELOS[prov] || [];
+  const saved = lsGet(`modelo_${prov}`);
 
-  if (GRATIS_AUTOMATICO.has(prov)) {
-    const opt = document.createElement("option");
-    opt.value = "";
-    opt.textContent = "⚠ Local indisponível no Netlify";
-    opt.disabled = true;
-    selModelo.appendChild(opt);
-    modeloAtual = "";
-    return;
-  }
+  const dl = document.getElementById("modeloSugestoes");
+  if (dl) dl.innerHTML = lista.map(m => `<option value="${m}">`).join("");
 
-  const modelos = MODELOS_FRONTEND[prov] || [];
-  modelos.forEach(m => {
-    const opt = document.createElement("option");
-    opt.value = m;
-    opt.textContent = m;
-    selModelo.appendChild(opt);
-  });
-  modeloAtual = selModelo.value || modelos[0] || "";
-  selModelo.value = modeloAtual;
+  modeloAtual = (saved && (lista.includes(saved) || lista.length === 0)) ? saved : (lista[0] || "");
+  if (selModelo) selModelo.value = modeloAtual;
+
+  // Tenta buscar da API em background
+  carregarModelosDaAPI(prov);
 }
 
-selModelo.addEventListener("change", () => { modeloAtual = selModelo.value; });
+async function carregarModelosDaAPI(prov) {
+  const cfg    = window.API_CONFIGS?.[prov];
+  const apiKey = lsGet(`key_${prov}`);
+  const base   = prov === "custom"
+    ? (lsGet(`url_${prov}`) || "").replace(/\/chat\/completions.*/, "")
+    : cfg?.base;
 
+  if (!base || !apiKey) return;
 
-// ── RACIOCÍNIO COLAPSÁVEL ─────────────────────────────────────────────────────
-let _thinkBlock = null;
-let _thinkContentEl = null;
-let _thinkStatusEl  = null;
+  try {
+    const params = new URLSearchParams({ base, key: apiKey });
+    const resp = await fetch(`/api/llm?${params}`);
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const ids = (data.data || [])
+      .map(m => m.id || m.name)
+      .filter(id => id &&
+        !id.includes("embedding") && !id.includes("tts") &&
+        !id.includes("whisper")   && !id.includes("dall") &&
+        !id.includes("image")     && !id.includes("video"))
+      .sort();
+    if (ids.length === 0) return;
 
-function _resetThink() { _thinkBlock = null; _thinkContentEl = null; _thinkStatusEl = null; }
+    // Atualiza datalist
+    const dl = document.getElementById("modeloSugestoes");
+    if (dl) dl.innerHTML = ids.map(m => `<option value="${m}">`).join("");
 
-function _getOrCreateThinkBlock(agRow, agBubble) {
-  if (_thinkBlock) return;
-  const uid = "ts" + Date.now();
-  const block = document.createElement("div");
-  block.className = "agent-section thinking collapsed";
-  block.innerHTML = `
-    <div class="agent-section-header" onclick="this.parentElement.classList.toggle('collapsed')">
-      <div class="agent-section-toggle">▶</div>
-      <div class="agent-section-title">raciocínio</div>
-      <div class="agent-section-status" id="${uid}">•••</div>
-    </div>
-    <div class="agent-section-content">
-      <div class="agent-section-text"></div>
-    </div>`;
-  agRow.insertBefore(block, agBubble);
-  _thinkBlock    = block;
-  _thinkContentEl = block.querySelector(".agent-section-text");
-  _thinkStatusEl  = document.getElementById(uid);
+    // Só muda o valor se o atual não estiver na lista nova
+    const saved = lsGet(`modelo_${prov}`);
+    if (!saved || !ids.includes(saved)) {
+      modeloAtual = ids[0];
+      if (selModelo) selModelo.value = modeloAtual;
+    }
+  } catch {}
 }
 
-function _appendThinkText(text, agRow, agBubble) {
-  _getOrCreateThinkBlock(agRow, agBubble);
-  _thinkContentEl.textContent += text;
-  scrollToBottom();
+selModelo?.addEventListener("change", () => {
+  modeloAtual = selModelo.value.trim();
+  if (modeloAtual) lsSet(`modelo_${provedorAtual}`, modeloAtual);
+});
+selModelo?.addEventListener("input", () => {
+  modeloAtual = selModelo.value.trim();
+  if (modeloAtual) lsSet(`modelo_${provedorAtual}`, modeloAtual);
+});
+
+// ── Status ────────────────────────────────────────────────────────────────────
+function atualizarStatusAPI() {
+  const el = document.getElementById("status-api-nome");
+  if (!el) return;
+  const key = lsGet(`key_${provedorAtual}`);
+  el.textContent = provedorAtual.toUpperCase() + (key ? " ✓" : " ⚠");
+  el.style.color = key ? "var(--green)" : "var(--orange)";
 }
 
-function _finalizeThinkBlock() {
-  if (!_thinkBlock) return;
-  if (_thinkStatusEl) _thinkStatusEl.textContent = "ver";
-  _thinkBlock.classList.add("collapsed");
+function setStatus(fase, texto) {
+  if (statusDot) statusDot.className = "status-dot " + (fase || "");
+  if (statusTxt) statusTxt.textContent = texto || fase || "pronto";
 }
 
-function _criarBotaoCopiar(getBubble) {
-  const btn = document.createElement("button");
-  btn.className = "copy-btn";
-  btn.title = "Copiar mensagem";
-  btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>`;
-  btn.addEventListener("click", () => {
-    const bubble = getBubble();
-    const txt = bubble ? (bubble.textContent || bubble.innerText || "") : "";
-    navigator.clipboard.writeText(txt).then(() => {
-      btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>`;
-      btn.classList.add("copied");
-      setTimeout(() => {
-        btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>`;
-        btn.classList.remove("copied");
-      }, 1800);
-    }).catch(() => {});
-  });
-  return btn;
-}
-
+// ── UI helpers ────────────────────────────────────────────────────────────────
 function addMensagem(quem, texto) {
   const row = document.createElement("div");
   row.className = `msg-row ${quem}`;
@@ -336,12 +295,10 @@ function addMensagem(quem, texto) {
   const bubble = document.createElement("div");
   bubble.className = "msg-bubble";
   bubble.textContent = texto;
-  bubble.style.whiteSpace = "pre-wrap";
-  bubble.style.wordWrap = "break-word";
-  const copyBtn = _criarBotaoCopiar(() => bubble);
+  bubble.style.cssText = "white-space:pre-wrap;word-wrap:break-word;";
   row.appendChild(label);
   row.appendChild(bubble);
-  row.appendChild(copyBtn);
+  row.appendChild(_criarBotaoCopiar(() => bubble));
   chatInner.appendChild(row);
   scrollToBottom();
 }
@@ -355,441 +312,307 @@ function addAviso(texto) {
 }
 
 function scrollToBottom() {
-  const chatArea = document.getElementById("chatArea");
-  setTimeout(() => { chatArea.scrollTop = chatArea.scrollHeight; }, 0);
+  const ca = document.getElementById("chatArea");
+  setTimeout(() => { if (ca) ca.scrollTop = ca.scrollHeight; }, 0);
 }
 
-function setStatus(fase, texto) {
-  statusDot.className = "status-dot " + (fase || "");
-  statusTxt.textContent = texto || fase || "pronto";
+function _criarBotaoCopiar(getBubble) {
+  const btn = document.createElement("button");
+  btn.className = "copy-btn";
+  btn.title = "Copiar";
+  btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>`;
+  btn.addEventListener("click", () => {
+    navigator.clipboard.writeText(getBubble()?.textContent || "")
+      .then(() => {
+        btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>`;
+        setTimeout(() => {
+          btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>`;
+        }, 1800);
+      }).catch(() => {});
+  });
+  return btn;
 }
 
-// ── ENVIAR MENSAGEM ───────────────────────────────────────────────────────────
+// ── Raciocínio ────────────────────────────────────────────────────────────────
+let _thinkBlock = null, _thinkContentEl = null, _thinkStatusEl = null;
+function _resetThink() { _thinkBlock = null; _thinkContentEl = null; _thinkStatusEl = null; }
+
+function _getOrCreateThinkBlock(agRow, agBubble) {
+  if (_thinkBlock) return;
+  const uid = "ts" + Date.now();
+  const block = document.createElement("div");
+  block.className = "agent-section thinking collapsed";
+  block.innerHTML = `
+    <div class="agent-section-header" onclick="this.parentElement.classList.toggle('collapsed')">
+      <div class="agent-section-toggle">▶</div>
+      <div class="agent-section-title">raciocínio</div>
+      <div class="agent-section-status" id="${uid}">•••</div>
+    </div>
+    <div class="agent-section-content"><div class="agent-section-text"></div></div>`;
+  agRow.insertBefore(block, agBubble);
+  _thinkBlock     = block;
+  _thinkContentEl = block.querySelector(".agent-section-text");
+  _thinkStatusEl  = document.getElementById(uid);
+}
+
+// ── Spinner ───────────────────────────────────────────────────────────────────
+let _spinnerEl = null;
+function mostrarSpinner() {
+  if (_spinnerEl) return;
+  const row = document.createElement("div");
+  row.className = "msg-row agent";
+  row.innerHTML = `<div class="msg-label">agente</div>
+    <div class="spinner-bubble">
+      <span class="spin-dot"></span><span class="spin-dot"></span><span class="spin-dot"></span>
+    </div>`;
+  chatInner.appendChild(row);
+  _spinnerEl = row;
+  scrollToBottom();
+}
+function removerSpinner() {
+  if (_spinnerEl) { _spinnerEl.remove(); _spinnerEl = null; }
+}
+
+// ── ENVIAR ────────────────────────────────────────────────────────────────────
 async function enviarMensagem(texto) {
-  const welcome = chatInner.querySelector(".welcome-msg");
-  if (welcome) welcome.remove();
+  document.querySelector(".welcome-msg")?.remove();
 
-  if (!modeloAtual) { addAviso("⚠ Selecione um modelo antes de enviar"); return; }
+  modeloAtual = selModelo?.value?.trim() || modeloAtual;
+  if (!modeloAtual) { addAviso("⚠ Digite ou selecione um modelo."); return; }
 
-  if (GRATIS_AUTOMATICO.has(provedorAtual)) {
-    addAviso("⚠ Provedores locais (Ollama/LM Studio) não estão disponíveis no Netlify. Selecione um provedor de nuvem.");
+  const apiKey = lsGet(`key_${provedorAtual}`);
+  const apiUrl = lsGet(`url_${provedorAtual}`);
+
+  if (!apiKey && provedorAtual !== "custom") {
+    addAviso(`⚠ Cole a API Key do ${provedorAtual} acima e clique em Salvar.`);
     return;
   }
 
   addMensagem("user", texto);
   _registrarMensagem("user", texto);
-  inputMsg.value = "";
-  inputMsg.style.height = "auto";
+  if (inputMsg) { inputMsg.value = ""; inputMsg.style.height = "auto"; }
   gerando = true;
   _resetThink();
-  btnEnviar.disabled = true;
-  btnParar.disabled  = false;
+  if (btnEnviar) btnEnviar.disabled = true;
+  if (btnParar)  btnParar.disabled  = false;
   setStatus("pensando", "pensando…");
   mostrarSpinner();
 
-  // Credenciais do provedor atual
-  const credenciais = _getCreds();
+  _llmHist.push({ role: "user", content: texto });
+  if (_llmHist.length > 16) _llmHist.splice(0, _llmHist.length - 16);
 
-  // Criar AbortController para poder parar
-  _abortController = new AbortController();
+  _abort = new AbortController();
 
-  // Adicionar ao histórico LLM
-  _llmHistorico.push({ role: "user", content: texto });
-  if (_llmHistorico.length > 16) _llmHistorico.splice(0, _llmHistorico.length - 16);
+  let agentRow = null, agentBubble = null, bufTxt = "";
 
-  console.log("📡 Enviando:", { provedor: provedorAtual, modelo: modeloAtual });
+  function garantirBolha() {
+    if (agentRow) return;
+    const r = document.createElement("div");
+    r.className = "msg-row agent";
+    const l = document.createElement("div");
+    l.className = "msg-label";
+    l.textContent = "agente";
+    const b = document.createElement("div");
+    b.className = "msg-bubble";
+    b.style.cssText = "white-space:pre-wrap;word-wrap:break-word;";
+    r.appendChild(l); r.appendChild(b); r.appendChild(_criarBotaoCopiar(() => b));
+    chatInner.appendChild(r);
+    agentRow = r; agentBubble = b;
+  }
+
+  const concluir = () => {
+    removerSpinner();
+    if (bufTxt.trim()) {
+      _registrarMensagem("agente", bufTxt.trim());
+      _llmHist.push({ role: "assistant", content: bufTxt.trim() });
+      if (_llmHist.length > 16) _llmHist.splice(0, _llmHist.length - 16);
+      _salvarConversaAtual();
+    }
+    setStatus("pronto", "pronto");
+    gerando = false;
+    if (btnEnviar) btnEnviar.disabled = false;
+    if (btnParar)  btnParar.disabled  = true;
+  };
 
   try {
-    const response = await fetch(`/api/enviar`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      signal: _abortController.signal,
-      body: JSON.stringify({
-        pergunta: texto,
-        fonte:      provedorAtual,
-        modelo:     modeloAtual,
-        credenciais,
-        modo_agente: modoAgente,
-        historico:  _llmHistorico.slice(0, -1), // sem a msg atual (já em pergunta)
-        projeto_nome: _projetoNome,
-      }),
+    await window.AgenteDev.runAgent({
+      pergunta:     texto,
+      fonte:        provedorAtual,
+      modelo:       modeloAtual,
+      apiKey,
+      apiUrlCustom: apiUrl,
+      historico:    _llmHist.slice(0, -1),
+      projetoNome:  _projetoNome,
+      vfs:          _virtualFS,
+      todos:        _todos,
+      signal:       _abort.signal,
+
+      onToken(t) {
+        removerSpinner(); setStatus("respondendo", "respondendo…");
+        garantirBolha(); bufTxt += t; agentBubble.textContent = bufTxt; scrollToBottom();
+      },
+      onThinkStart() {
+        removerSpinner(); setStatus("pensando", "raciocinando…");
+        garantirBolha(); _getOrCreateThinkBlock(agentRow, agentBubble);
+        if (_thinkStatusEl) _thinkStatusEl.classList.add("live");
+      },
+      onThinkToken(t) {
+        if (_thinkContentEl) { _thinkContentEl.textContent += t; scrollToBottom(); }
+      },
+      onThinkDone() {
+        if (_thinkStatusEl) { _thinkStatusEl.classList.remove("live"); _thinkStatusEl.textContent = "ver"; }
+        if (_thinkBlock) _thinkBlock.classList.add("collapsed");
+      },
+      onToolStart(nome, id) {
+        removerSpinner(); garantirBolha();
+        const ti = document.createElement("div");
+        ti.className = "tool-indicator";
+        ti.dataset.toolId = id || "";
+        ti.innerHTML = `<span class="tool-spin">⟳</span><span class="tool-nome">${nome}</span><span class="tool-status">executando…</span>`;
+        agentRow.insertBefore(ti, agentBubble);
+      },
+      onToolEnd(nome, id, resultado) {
+        const el = agentRow?.querySelector(`.tool-indicator[data-tool-id="${id}"]`)
+          || agentRow?.querySelector(".tool-indicator:last-of-type");
+        if (el) {
+          el.querySelector(".tool-spin").textContent   = "✓";
+          el.querySelector(".tool-status").textContent = resultado?.split("\n")[0]?.slice(0, 60) || "ok";
+          el.classList.add("done");
+        }
+        if (["escrever_arquivo","criar_estrutura_projeto","verificar_arquivo"].includes(nome)) {
+          renderVirtualFS();
+        }
+      },
+      onArquivosCriados(arquivos, vfsAtual) {
+        Object.assign(_virtualFS, vfsAtual);
+        renderVirtualFS();
+        _arquivosFlat = Object.keys(_virtualFS).map(cam => ({
+          nome: cam.split("/").pop(), caminho: cam,
+          ext:  cam.includes(".") ? cam.split(".").pop().toLowerCase() : ""
+        }));
+        garantirBolha();
+        const card = document.createElement("div");
+        card.className = "arquivos-card";
+        const titulo = document.createElement("div");
+        titulo.className = "arquivos-card-titulo";
+        titulo.textContent = `✓ ${arquivos.length} arquivo(s) criado(s)`;
+        card.appendChild(titulo);
+        arquivos.forEach(arq => {
+          const item = document.createElement("div");
+          item.className = "arquivos-card-item";
+          item.style.cursor = "pointer";
+          item.innerHTML = `<span class="arq-icon">📄</span><span class="arq-nome">${arq.split("/").pop()}</span><span class="arq-path">${arq}</span>`;
+          item.addEventListener("click", () => abrirNoEditor(arq, arq.split("/").pop()));
+          card.appendChild(item);
+        });
+        const btnDl = document.createElement("button");
+        btnDl.style.cssText = "margin-top:8px;padding:5px 14px;border-radius:6px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:11px;";
+        btnDl.textContent = "⬇ Baixar ZIP";
+        btnDl.addEventListener("click", downloadZip);
+        card.appendChild(btnDl);
+        agentRow.insertBefore(card, agentBubble);
+      },
+      onStatus(fase) { setStatus(fase, fase + "…"); },
+      onAviso(msg)   { removerSpinner(); addAviso(msg); },
+      onFim:  concluir,
+      onErro(msg) { removerSpinner(); addAviso("❌ " + msg); concluir(); },
     });
-
-    if (!response.ok) throw new Error("HTTP " + response.status);
-
-    const reader  = response.body.getReader();
-    const decoder = new TextDecoder();
-    let sseBuffer    = "";
-    let agentRow     = null;
-    let agentBubble  = null;
-    let bufferTexto  = "";
-
-    function garantirBolha() {
-      if (agentRow) return;
-      const r = document.createElement("div");
-      r.className = "msg-row agent";
-      const l = document.createElement("div");
-      l.className = "msg-label";
-      l.textContent = "agente";
-      const b = document.createElement("div");
-      b.className = "msg-bubble";
-      b.style.whiteSpace = "pre-wrap";
-      b.style.wordWrap   = "break-word";
-      const copyBtn = _criarBotaoCopiar(() => b);
-      r.appendChild(l);
-      r.appendChild(b);
-      r.appendChild(copyBtn);
-      chatInner.appendChild(r);
-      agentRow    = r;
-      agentBubble = b;
-    }
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      sseBuffer += decoder.decode(value, { stream: true });
-      const events = sseBuffer.split("\n\n");
-      sseBuffer = events.pop();
-
-      for (const bloco of events) {
-        if (!bloco.trim()) continue;
-
-        let eventName = "message";
-        let eventData = "";
-        for (const line of bloco.split("\n")) {
-          if (line.startsWith("event: ")) eventName = line.slice(7).trim();
-          if (line.startsWith("data: "))  eventData = line.slice(6).trim();
-        }
-
-        let payload = {};
-        try { payload = JSON.parse(eventData); } catch {}
-
-        switch (eventName) {
-          case "think_start":
-            if (_spinnerEl) {
-              _spinnerEl.querySelector(".spinner-bubble").innerHTML =
-                `<span class="spin-raciocinio">🧠</span><span class="spin-label">raciocinando…</span>`;
-            }
-            setStatus("pensando", "raciocinando…");
-            garantirBolha();
-            _getOrCreateThinkBlock(agentRow, agentBubble);
-            if (_thinkStatusEl) _thinkStatusEl.classList.add("live");
-            break;
-
-          case "think_token":
-            if (payload.text) {
-              removerSpinner();
-              garantirBolha();
-              _appendThinkText(payload.text, agentRow, agentBubble);
-            }
-            break;
-
-          case "think_done":
-            if (_thinkStatusEl) _thinkStatusEl.classList.remove("live");
-            _finalizeThinkBlock();
-            break;
-
-          case "token":
-            removerSpinner();
-            setStatus("respondendo", "respondendo…");
-            if (payload.text) {
-              garantirBolha();
-              bufferTexto += payload.text;
-              agentBubble.textContent = bufferTexto;
-              scrollToBottom();
-            }
-            break;
-
-          case "tool_start":
-            removerSpinner();
-            if (payload.nome) {
-              garantirBolha();
-              const toolIndicator = document.createElement("div");
-              toolIndicator.className = "tool-indicator";
-              toolIndicator.dataset.toolId = payload.id || "";
-              toolIndicator.innerHTML = `
-                <span class="tool-spin">⟳</span>
-                <span class="tool-nome">${payload.nome}</span>
-                <span class="tool-status">executando…</span>`;
-              agentRow.insertBefore(toolIndicator, agentBubble);
-            }
-            break;
-
-          case "tool_end":
-            if (payload.id || payload.nome) {
-              const toolEl = agentRow?.querySelector(`.tool-indicator[data-tool-id="${payload.id || ""}"]`)
-                || agentRow?.querySelector(".tool-indicator:last-of-type");
-              if (toolEl) {
-                toolEl.querySelector(".tool-spin").textContent   = "✓";
-                toolEl.querySelector(".tool-status").textContent = payload.resultado?.slice(0, 60) || "ok";
-                toolEl.classList.add("done");
-              }
-            }
-            // Atualizar explorer de arquivos se arquivo foi criado
-            if (payload.nome === "escrever_arquivo" || payload.nome === "criar_estrutura_projeto") {
-              if (typeof renderVirtualFS === "function") renderVirtualFS();
-            }
-            break;
-
-          case "arquivos_criados":
-            removerSpinner();
-            // Mesclar arquivos no Virtual FS
-            if (payload.conteudos) {
-              Object.assign(_virtualFS, payload.conteudos);
-              renderVirtualFS();
-              // Atualizar lista para autocomplete
-              _arquivosFlat = Object.keys(_virtualFS).map(cam => ({
-                nome: cam.split("/").pop(),
-                caminho: cam,
-                ext: cam.includes(".") ? cam.split(".").pop().toLowerCase() : ""
-              }));
-            }
-            // Card de arquivos criados na bolha
-            if (payload.arquivos && payload.arquivos.length > 0) {
-              garantirBolha();
-              const card = document.createElement("div");
-              card.className = "arquivos-card";
-              const titulo = document.createElement("div");
-              titulo.className = "arquivos-card-titulo";
-              titulo.textContent = `${payload.status} — ${payload.total} arquivo(s) criado(s)`;
-              card.appendChild(titulo);
-              payload.arquivos.forEach(arq => {
-                const item = document.createElement("div");
-                item.className = "arquivos-card-item";
-                const nome = arq.split(/[/\\]/).pop();
-                item.innerHTML = `<span class="arq-icon">📄</span><span class="arq-nome" title="${arq}">${nome}</span><span class="arq-path">${arq}</span>`;
-                item.style.cursor = "pointer";
-                item.addEventListener("click", () => {
-                  if (_virtualFS[arq]) abrirNoEditor(arq, nome);
-                });
-                card.appendChild(item);
-              });
-              // Botão download ZIP
-              const btnDownload = document.createElement("button");
-              btnDownload.className = "arquivos-card-download";
-              btnDownload.innerHTML = `⬇ Baixar como ZIP`;
-              btnDownload.style.cssText = "margin-top:8px;padding:5px 12px;border-radius:6px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:11px;";
-              btnDownload.addEventListener("click", () => downloadAsZip(_virtualFS, _projetoNome));
-              card.appendChild(btnDownload);
-              agentRow.insertBefore(card, agentBubble);
-            }
-            break;
-
-          case "status":
-            setStatus("pensando", payload.fase || "processando…");
-            break;
-
-          case "aviso":
-            removerSpinner();
-            if (payload.msg) addAviso(payload.msg);
-            break;
-
-          case "fim":
-          case "done":
-            if (bufferTexto.trim()) {
-              _registrarMensagem("agente", bufferTexto.trim());
-              // Adicionar ao histórico LLM
-              _llmHistorico.push({ role: "assistant", content: bufferTexto.trim() });
-              if (_llmHistorico.length > 16) _llmHistorico.splice(0, _llmHistorico.length - 16);
-              _salvarConversaAtual();
-            }
-            setStatus("pronto", "pronto");
-            gerando      = false;
-            btnEnviar.disabled = false;
-            btnParar.disabled  = true;
-            break;
-
-          case "erro":
-          case "error":
-            removerSpinner();
-            setStatus("erro", "erro");
-            addAviso("❌ " + (payload.msg || payload.error || "erro desconhecido"));
-            gerando      = false;
-            btnEnviar.disabled = false;
-            btnParar.disabled  = true;
-            break;
-        }
-      }
-    }
-  } catch (erro) {
-    if (erro.name === "AbortError") {
-      addAviso("⏹ Geração interrompida.");
-    } else {
-      console.error("❌ Erro:", erro);
-      addAviso("❌ " + erro.message);
-    }
-  } finally {
-    gerando      = false;
-    btnEnviar.disabled = false;
-    btnParar.disabled  = true;
-    setStatus("pronto", "pronto");
+  } catch (e) {
+    removerSpinner();
+    if (e.name !== "AbortError") addAviso("❌ " + e.message);
+    concluir();
   }
 }
 
-// Obter credenciais do provedor atual do localStorage
-function _getCreds() {
-  return {
-    groq_api_key:       lsGet("key_groq"),
-    gemini_api_key:     lsGet("key_gemini"),
-    openrouter_api_key: lsGet("key_openrouter"),
-    scitely_api_key:    lsGet("key_scitely"),
-    llmapi_api_key:     lsGet("key_llmapi"),
-    puter_auth_token:   lsGet("key_puter"),
-    custom_api_key:     lsGet("key_custom"),
-    custom_api_url:     lsGet("url_custom"),
-  };
-}
-
-// ── DOWNLOAD COMO ZIP ─────────────────────────────────────────────────────────
-async function downloadAsZip(vfs, projetoNome) {
-  const arquivos = Object.entries(vfs);
-  if (arquivos.length === 0) { addAviso("⚠ Nenhum arquivo para baixar."); return; }
-
-  // Usa JSZip se disponível, senão faz download individual
-  if (window.JSZip) {
-    const zip = new JSZip();
-    const pasta = zip.folder(projetoNome || "projeto");
-    for (const [caminho, conteudo] of arquivos) {
-      pasta.file(caminho, conteudo);
-    }
-    const blob = await zip.generateAsync({ type: "blob" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${(projetoNome || "projeto").replace(/[^a-z0-9_-]/gi, "_")}.zip`;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
-  } else {
-    // Fallback: gera HTML com todos os arquivos embutidos
-    const conteudo = arquivos.map(([cam, cont]) =>
-      `<!-- === ${cam} === -->\n<!-- Para usar: salve o conteúdo abaixo como "${cam}" -->\n${cont}`
-    ).join("\n\n\n");
-    const blob = new Blob([conteudo], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${projetoNome || "projeto"}-arquivos.txt`;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
-  }
-}
-
-btnEnviar.addEventListener("click", () => {
-  const texto = inputMsg.value.trim();
-  if (texto && !gerando) {
+btnEnviar?.addEventListener("click", () => {
+  const txt = inputMsg?.value.trim();
+  if (txt && !gerando) {
     const ctx = typeof montarContextoRefs === "function" ? montarContextoRefs() : "";
     if (ctx && typeof _refs !== "undefined") { _refs = []; renderRefs(); }
-    enviarMensagem(ctx ? texto + ctx : texto);
+    enviarMensagem(ctx ? txt + ctx : txt);
   }
 });
 
-inputMsg.addEventListener("keydown", (e) => {
+inputMsg?.addEventListener("keydown", e => {
   if (e.key === "Enter" && !e.shiftKey && !gerando) {
     if (typeof _acAtivo !== "undefined" && _acAtivo) return;
     e.preventDefault();
-    const texto = inputMsg.value.trim();
-    if (texto) {
+    const txt = inputMsg.value.trim();
+    if (txt) {
       const ctx = typeof montarContextoRefs === "function" ? montarContextoRefs() : "";
       if (ctx && typeof _refs !== "undefined") { _refs = []; renderRefs(); }
-      enviarMensagem(ctx ? texto + ctx : texto);
+      enviarMensagem(ctx ? txt + ctx : txt);
     }
   }
 });
 
-inputMsg.addEventListener("input", () => {
-  inputMsg.style.height = "auto";
-  inputMsg.style.height = inputMsg.scrollHeight + "px";
+inputMsg?.addEventListener("input", () => {
+  if (inputMsg) { inputMsg.style.height = "auto"; inputMsg.style.height = inputMsg.scrollHeight + "px"; }
 });
 
-// Botão parar
 btnParar?.addEventListener("click", () => {
-  if (_abortController) _abortController.abort();
+  _abort?.abort();
   gerando = false;
-  btnEnviar.disabled = false;
-  btnParar.disabled  = true;
+  if (btnEnviar) btnEnviar.disabled = false;
+  if (btnParar)  btnParar.disabled  = true;
   setStatus("pronto", "pronto");
+  addAviso("⏹ Interrompido.");
 });
 
-// ── MODO DO AGENTE ───────────────────────────────────────────────────────────
+// ── Modo agente ───────────────────────────────────────────────────────────────
 function setModoAgente(modo) {
-  modoAgente = modo;
-  document.querySelectorAll("#segModo .seg-btn").forEach(b => {
-    b.classList.toggle("active", b.dataset.modo === modo);
-  });
+  document.querySelectorAll("#segModo .seg-btn").forEach(b =>
+    b.classList.toggle("active", b.dataset.modo === modo));
   lsSet("modo_agente", modo);
 }
+document.querySelectorAll("#segModo .seg-btn").forEach(btn =>
+  btn.addEventListener("click", () => setModoAgente(btn.dataset.modo)));
 
-document.querySelectorAll("#segModo .seg-btn").forEach(btn => {
-  btn.addEventListener("click", () => setModoAgente(btn.dataset.modo));
-});
-
-// ── PROJETO (nome apenas — sem filesystem local) ───────────────────────────────
-const btnProjeto  = document.getElementById("btnProjeto");
-const projetoNome = document.getElementById("projetoNome");
-const projetoPath = document.getElementById("projetoPath");
-
-btnProjeto?.addEventListener("click", () => {
+// ── Projeto ───────────────────────────────────────────────────────────────────
+document.getElementById("btnProjeto")?.addEventListener("click", () => {
   const novo = prompt("Nome do projeto:", _projetoNome);
   if (novo?.trim()) {
     _projetoNome = novo.trim();
     lsSet("projeto_nome", _projetoNome);
-    if (projetoNome) { projetoNome.textContent = _projetoNome; projetoNome.title = _projetoNome; }
-    if (projetoPath) projetoPath.textContent = "(virtual)";
+    const el = document.getElementById("projetoNome");
+    if (el) el.textContent = _projetoNome;
     addAviso(`📁 Projeto: ${_projetoNome}`);
   }
 });
 
-// Limpar
-const btnLimpar = document.getElementById("btnLimpar");
-btnLimpar?.addEventListener("click", () => {
-  _salvarConversaAtual();
-  _llmHistorico = [];
+document.getElementById("btnLimpar")?.addEventListener("click", () => {
+  _salvarConversaAtual(); _llmHist = [];
   _iniciarNovaConversa();
-  chatInner.innerHTML = `<div class="welcome-msg"><div class="welcome-icon">⬡</div><p>Nova conversa iniciada.</p></div>`;
+  chatInner.innerHTML = `<div class="welcome-msg"><div class="welcome-icon">⬡</div><p>Nova conversa.</p></div>`;
   renderizarConvSidebar();
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
-// SISTEMA DE HISTÓRICO — SIDEBAR PERSISTENTE
+// HISTÓRICO
 // ══════════════════════════════════════════════════════════════════════════════
+const HIST_KEY  = "agente_dev_conversas";
+const MAX_CONV  = 100;
+let _conversaAtual      = null;
+let _convSidebarAberta  = true;
 
-const HIST_LS_KEY   = "agente_dev_conversas";
-const MAX_CONVERSAS = 100;
-let _conversaAtual  = null;
-let _convSidebarAberta = true;
-
-function _carregarConversas() {
-  try { return JSON.parse(localStorage.getItem(HIST_LS_KEY) || "[]"); }
-  catch { return []; }
-}
-function _salvarConversas(lista) {
-  try { localStorage.setItem(HIST_LS_KEY, JSON.stringify(lista)); }
-  catch(e) { console.warn("localStorage cheio?", e); }
-}
-
-function _gerarId() { return "c" + Date.now() + Math.random().toString(36).slice(2,6); }
+const _carregarConversas = () => {
+  try { return JSON.parse(_store.getItem(HIST_KEY) || "[]"); } catch { return []; }
+};
+const _salvarConversas = (l) => {
+  try { _store.setItem(HIST_KEY, JSON.stringify(l)); } catch {}
+};
+const _gerarId = () => "c" + Date.now() + Math.random().toString(36).slice(2,6);
 
 function _iniciarNovaConversa() {
-  _conversaAtual = {
-    id:        _gerarId(),
-    titulo:    "",
-    data:      new Date().toISOString(),
-    provedor:  provedorAtual,
-    modelo:    modeloAtual,
-    projeto:   _projetoNome || "",
-    mensagens: []
-  };
+  _conversaAtual = { id: _gerarId(), titulo: "", data: new Date().toISOString(),
+    provedor: provedorAtual, modelo: modeloAtual, mensagens: [] };
 }
 
 function _registrarMensagem(quem, texto) {
   if (!texto?.trim()) return;
   if (!_conversaAtual) _iniciarNovaConversa();
-  if (!_conversaAtual.titulo && quem === "user") {
+  if (!_conversaAtual.titulo && quem === "user")
     _conversaAtual.titulo = texto.slice(0, 70) + (texto.length > 70 ? "…" : "");
-  }
   _conversaAtual.mensagens.push({ quem, texto: texto.trim(), ts: Date.now() });
 }
 
@@ -798,99 +621,56 @@ function _salvarConversaAtual() {
   const lista = _carregarConversas();
   const idx   = lista.findIndex(c => c.id === _conversaAtual.id);
   if (idx >= 0) lista[idx] = _conversaAtual;
-  else {
-    lista.unshift(_conversaAtual);
-    if (lista.length > MAX_CONVERSAS) lista.splice(MAX_CONVERSAS);
-  }
+  else { lista.unshift(_conversaAtual); if (lista.length > MAX_CONV) lista.splice(MAX_CONV); }
   _salvarConversas(lista);
   renderizarConvSidebar();
 }
 
-function _exportarConversa(conversa) {
-  const data  = new Date(conversa.data).toLocaleString("pt-BR");
-  const linhas = [
-    `# ${conversa.titulo || "Conversa sem título"}`,
-    `\n**Data:** ${data}  `,
-    `**Modelo:** ${conversa.provedor} / ${conversa.modelo}`,
-    conversa.projeto ? `**Projeto:** \`${conversa.projeto}\`` : "",
-    `\n---\n`
-  ];
-  for (const msg of conversa.mensagens) {
-    const ts = msg.ts ? new Date(msg.ts).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}) : "";
-    linhas.push(msg.quem === "user" ? `### 👤 Você _(${ts})_` : `### 🤖 Agente _(${ts})_`);
-    linhas.push("", msg.texto, "\n---\n");
-  }
-  const blob = new Blob([linhas.join("\n")], { type:"text/markdown;charset=utf-8" });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement("a");
-  a.href     = url;
-  a.download = `agente_${(conversa.titulo||"conversa").slice(0,40).replace(/[^\w\s-]/g,"").trim().replace(/\s+/g,"_")}.md`;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
-}
-
-function _carregarConversaNoChat(conversa) {
+function _carregarConversaNoChat(conv) {
   _salvarConversaAtual();
-  _conversaAtual = JSON.parse(JSON.stringify(conversa));
-  _llmHistorico  = conversa.mensagens.map(m => ({
-    role: m.quem === "user" ? "user" : "assistant",
-    content: m.texto
-  }));
+  _conversaAtual = JSON.parse(JSON.stringify(conv));
+  _llmHist = conv.mensagens.map(m => ({ role: m.quem === "user" ? "user" : "assistant", content: m.texto }));
   chatInner.innerHTML = "";
-  for (const msg of conversa.mensagens) addMensagem(msg.quem, msg.texto);
+  for (const msg of conv.mensagens) addMensagem(msg.quem, msg.texto);
   renderizarConvSidebar();
-  addAviso(`📂 "${conversa.titulo || "conversa"}" carregada`);
+  addAviso(`📂 "${conv.titulo || "conversa"}" carregada`);
 }
 
 function _agrupar(lista) {
-  const hoje   = new Date(); hoje.setHours(0,0,0,0);
-  const ontem  = new Date(hoje); ontem.setDate(ontem.getDate()-1);
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const ontem = new Date(hoje); ontem.setDate(ontem.getDate()-1);
   const semana = new Date(hoje); semana.setDate(semana.getDate()-7);
-  const mes    = new Date(hoje); mes.setDate(mes.getDate()-30);
-
-  const grupos = { "Hoje":[], "Ontem":[], "Últimos 7 dias":[], "Últimos 30 dias":[], "Mais antigas":[] };
+  const g = { "Hoje":[], "Ontem":[], "Últimos 7 dias":[], "Mais antigas":[] };
   for (const c of lista) {
     const d = new Date(c.data); d.setHours(0,0,0,0);
-    if (d >= hoje)   grupos["Hoje"].push(c);
-    else if (d >= ontem)  grupos["Ontem"].push(c);
-    else if (d >= semana) grupos["Últimos 7 dias"].push(c);
-    else if (d >= mes)    grupos["Últimos 30 dias"].push(c);
-    else grupos["Mais antigas"].push(c);
+    if      (d >= hoje)   g["Hoje"].push(c);
+    else if (d >= ontem)  g["Ontem"].push(c);
+    else if (d >= semana) g["Últimos 7 dias"].push(c);
+    else                  g["Mais antigas"].push(c);
   }
-  return grupos;
+  return g;
 }
 
 function renderizarConvSidebar() {
   const container = document.getElementById("convLista");
   if (!container) return;
-
   const lista = _carregarConversas();
-  if (lista.length === 0) {
-    container.innerHTML = `<div class="conv-lista-vazio">Nenhuma conversa ainda.<br>Envie uma mensagem para começar.</div>`;
+  if (!lista.length) {
+    container.innerHTML = `<div class="conv-lista-vazio">Nenhuma conversa ainda.</div>`;
     return;
   }
-
   container.innerHTML = "";
-  const grupos = _agrupar(lista);
-
-  for (const [label, convs] of Object.entries(grupos)) {
-    if (convs.length === 0) continue;
-
-    const grpLabel = document.createElement("div");
-    grpLabel.className = "conv-grupo-label";
-    grpLabel.textContent = label;
-    container.appendChild(grpLabel);
-
+  for (const [label, convs] of Object.entries(_agrupar(lista))) {
+    if (!convs.length) continue;
+    const grp = document.createElement("div");
+    grp.className = "conv-grupo-label"; grp.textContent = label;
+    container.appendChild(grp);
     for (const conv of convs) {
-      const isAtual = _conversaAtual && conv.id === _conversaAtual.id;
-      const item    = document.createElement("div");
+      const isAtual = _conversaAtual?.id === conv.id;
+      const item = document.createElement("div");
       item.className = "conv-item" + (isAtual ? " ativa" : "");
-      item.title = conv.titulo || "Conversa sem título";
-
-      const hora   = new Date(conv.data).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+      const hora   = new Date(conv.data).toLocaleTimeString("pt-BR", {hour:"2-digit",minute:"2-digit"});
       const modelo = conv.modelo.split("/").pop().split(":")[0];
-
       item.innerHTML = `
         <div class="conv-item-texto">
           <div class="conv-item-titulo">${conv.titulo || "Conversa sem título"}</div>
@@ -901,316 +681,181 @@ function renderizarConvSidebar() {
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           </button>
           <button class="conv-item-btn del" title="Apagar">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
           </button>
         </div>`;
-
       item.querySelector(".conv-item-texto").addEventListener("click", () => _carregarConversaNoChat(conv));
-      item.querySelector(".conv-item-btn.exp").addEventListener("click", e => {
+      item.querySelector(".exp").addEventListener("click", e => { e.stopPropagation(); _exportarConversa(conv); });
+      item.querySelector(".del").addEventListener("click", e => {
         e.stopPropagation();
-        _exportarConversa(conv);
-      });
-      item.querySelector(".conv-item-btn.del").addEventListener("click", e => {
-        e.stopPropagation();
-        const novaLista = _carregarConversas().filter(c => c.id !== conv.id);
-        _salvarConversas(novaLista);
-        item.style.opacity   = "0";
-        item.style.transform = "translateX(-8px)";
-        item.style.transition = "opacity .18s, transform .18s";
+        _salvarConversas(_carregarConversas().filter(c => c.id !== conv.id));
+        item.style.cssText = "opacity:0;transform:translateX(-8px);transition:.18s";
         setTimeout(() => renderizarConvSidebar(), 200);
       });
-
       container.appendChild(item);
     }
   }
 }
 
-// ── Toggle sidebar ────────────────────────────────────────────────────────────
-function toggleConvSidebar() {
-  const sidebar = document.getElementById("convSidebar");
-  if (!sidebar) return;
-  _convSidebarAberta = !_convSidebarAberta;
-  sidebar.classList.toggle("collapsed", !_convSidebarAberta);
-  lsSet("conv_sidebar_aberta", _convSidebarAberta ? "1" : "0");
+function _exportarConversa(conv) {
+  const data = new Date(conv.data).toLocaleString("pt-BR");
+  const linhas = [`# ${conv.titulo || "Conversa"}\n\n**Data:** ${data}  \n**Modelo:** ${conv.provedor}/${conv.modelo}\n\n---\n`];
+  for (const msg of conv.mensagens) {
+    const ts = msg.ts ? new Date(msg.ts).toLocaleTimeString("pt-BR", {hour:"2-digit",minute:"2-digit"}) : "";
+    linhas.push(msg.quem === "user" ? `### 👤 Você _(${ts})_` : `### 🤖 Agente _(${ts})_`);
+    linhas.push("", msg.texto, "\n---\n");
+  }
+  const a = Object.assign(document.createElement("a"), {
+    href: URL.createObjectURL(new Blob([linhas.join("\n")], { type: "text/markdown;charset=utf-8" })),
+    download: `agente_${(conv.titulo||"conversa").slice(0,40).replace(/[^\w]/g,"_")}.md`
+  });
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
 }
 
+function toggleConvSidebar() {
+  const sb = document.getElementById("convSidebar");
+  if (!sb) return;
+  _convSidebarAberta = !_convSidebarAberta;
+  sb.classList.toggle("collapsed", !_convSidebarAberta);
+  lsSet("conv_sidebar_aberta", _convSidebarAberta ? "1" : "0");
+}
 document.getElementById("btnToggleConvSidebar")?.addEventListener("click", toggleConvSidebar);
 document.getElementById("btnTopbarMenu")?.addEventListener("click", toggleConvSidebar);
 
 document.getElementById("btnNovaConversa")?.addEventListener("click", () => {
-  _salvarConversaAtual();
-  _llmHistorico = [];
+  _salvarConversaAtual(); _llmHist = [];
   _iniciarNovaConversa();
-  chatInner.innerHTML = `<div class="welcome-msg"><div class="welcome-icon">⬡</div><p>Nova conversa.</p><p class="welcome-hint">O que você quer criar hoje?</p></div>`;
+  chatInner.innerHTML = `<div class="welcome-msg"><div class="welcome-icon">⬡</div><p>Nova conversa.</p></div>`;
   renderizarConvSidebar();
 });
 
 document.getElementById("btnConvLimparTudo")?.addEventListener("click", () => {
-  if (confirm("Apagar TODAS as conversas salvas? Não pode ser desfeito.")) {
-    _salvarConversas([]);
-    renderizarConvSidebar();
+  if (confirm("Apagar TODAS as conversas?")) { _salvarConversas([]); renderizarConvSidebar(); }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// DOWNLOAD ZIP
+// ══════════════════════════════════════════════════════════════════════════════
+async function downloadZip() {
+  const arqs = Object.entries(_virtualFS);
+  if (!arqs.length) { addAviso("⚠ Nenhum arquivo para baixar."); return; }
+
+  if (window.JSZip) {
+    const zip   = new JSZip();
+    const pasta = zip.folder(_projetoNome || "projeto");
+    for (const [cam, cont] of arqs) pasta.file(cam, cont);
+    const blob = await zip.generateAsync({ type: "blob" });
+    const a = Object.assign(document.createElement("a"), {
+      href: URL.createObjectURL(blob),
+      download: (_projetoNome || "projeto").replace(/[^a-z0-9_-]/gi, "_") + ".zip"
+    });
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  } else {
+    const txt = arqs.map(([cam, cont]) => `// ===== ${cam} =====\n${cont}`).join("\n\n\n");
+    const a = Object.assign(document.createElement("a"), {
+      href: URL.createObjectURL(new Blob([txt], { type: "text/plain" })),
+      download: (_projetoNome || "projeto") + "-arquivos.txt"
+    });
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
   }
-});
-
-(function() {
-  const salvo   = lsGet("conv_sidebar_aberta");
-  _convSidebarAberta = salvo !== "0";
-  const sidebar = document.getElementById("convSidebar");
-  if (sidebar && !_convSidebarAberta) sidebar.classList.add("collapsed");
-})();
-
-// ── SPINNER DE LOADING ────────────────────────────────────────────────────────
-let _spinnerEl = null;
-
-function mostrarSpinner() {
-  if (_spinnerEl) return;
-  const row = document.createElement("div");
-  row.className = "msg-row agent";
-  row.id = "loadingSpinner";
-  row.innerHTML = `
-    <div class="msg-label">agente</div>
-    <div class="spinner-bubble">
-      <span class="spin-dot"></span>
-      <span class="spin-dot"></span>
-      <span class="spin-dot"></span>
-    </div>`;
-  chatInner.appendChild(row);
-  _spinnerEl = row;
-  scrollToBottom();
 }
-
-function removerSpinner() {
-  if (_spinnerEl) { _spinnerEl.remove(); _spinnerEl = null; }
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  const statusPill = document.querySelector(".status-pill");
-  if (statusPill && statusPill.parentElement) {
-    statusAPIElement = criarStatusAPI();
-    statusPill.parentElement.appendChild(statusAPIElement);
-  }
-
-  // Netlify: começa na aba nuvem
-  setTipo("nuvem");
-  setStatus("pronto", "pronto");
-  atualizarStatusAPI();
-
-  const savedModo = lsGet("modo_agente") || "agente";
-  setModoAgente(savedModo);
-
-  // Restaurar nome do projeto
-  const savedProjeto = lsGet("projeto_nome");
-  if (savedProjeto) {
-    _projetoNome = savedProjeto;
-    if (projetoNome) { projetoNome.textContent = _projetoNome; projetoNome.title = _projetoNome; }
-    if (projetoPath) projetoPath.textContent = "(virtual)";
-  }
-
-  _iniciarNovaConversa();
-  renderizarConvSidebar();
-  renderVirtualFS();
-});
 
 // ══════════════════════════════════════════════════════════════════════════════
-// CHAVES API NOMEADAS
+// VIRTUAL FS EXPLORER
 // ══════════════════════════════════════════════════════════════════════════════
-
-function _keysStorageKey(prov) { return `agente_dev_named_keys_${prov}`; }
-
-function getChavesNomeadas(prov) {
-  try { return JSON.parse(localStorage.getItem(_keysStorageKey(prov)) || "[]"); }
-  catch { return []; }
-}
-
-function salvarChaveNomeada(prov, nome, key, url) {
-  const lista = getChavesNomeadas(prov);
-  const idx   = lista.findIndex(k => k.nome === nome);
-  const item  = { nome, key, url: url || "" };
-  if (idx >= 0) lista[idx] = item; else lista.push(item);
-  localStorage.setItem(_keysStorageKey(prov), JSON.stringify(lista));
-}
-
-function deletarChaveNomeada(prov, nome) {
-  const lista = getChavesNomeadas(prov).filter(k => k.nome !== nome);
-  localStorage.setItem(_keysStorageKey(prov), JSON.stringify(lista));
-}
-
-function renderChavesSalvas(prov) {
-  const container = document.getElementById("credsSavedKeys");
-  const sel       = document.getElementById("selSavedKey");
-  if (!container || !sel) return;
-  const lista = getChavesNomeadas(prov);
-  if (lista.length === 0) { container.style.display = "none"; return; }
-  container.style.display = "flex";
-  sel.innerHTML = `<option value="">— selecionar —</option>` +
-    lista.map(k => `<option value="${k.nome}">${k.nome}</option>`).join("");
-}
-
-document.getElementById("selSavedKey")?.addEventListener("change", () => {
-  const sel     = document.getElementById("selSavedKey");
-  const nome    = sel.value;
-  const btnDel  = document.getElementById("btnDeletarKey");
-  if (!nome) { if (btnDel) btnDel.style.display = "none"; return; }
-  const lista   = getChavesNomeadas(provedorAtual);
-  const item    = lista.find(k => k.nome === nome);
-  if (!item) return;
-  inputApiKey.value = item.key;
-  if (item.url) inputApiUrl.value = item.url;
-  lsSet(`key_${provedorAtual}`, item.key);
-  if (item.url) lsSet(`url_${provedorAtual}`, item.url);
-  if (btnDel) btnDel.style.display = "flex";
-  addAviso(`✓ Chave "${nome}" carregada`);
-});
-
-document.getElementById("btnDeletarKey")?.addEventListener("click", () => {
-  const sel  = document.getElementById("selSavedKey");
-  const nome = sel.value;
-  if (!nome) return;
-  deletarChaveNomeada(provedorAtual, nome);
-  renderChavesSalvas(provedorAtual);
-  addAviso(`✓ Chave "${nome}" removida`);
-  document.getElementById("btnDeletarKey").style.display = "none";
-});
-
-
-// ══════════════════════════════════════════════════════════════════════════════
-// VIRTUAL FILESYSTEM EXPLORER (substitui explorador de arquivos do backend)
-// ══════════════════════════════════════════════════════════════════════════════
-
 const sidebar     = document.getElementById("sidebar");
 const btnExplorer = document.getElementById("btnExplorer");
 const sidebarTree = document.getElementById("sidebarTree");
-const btnSidebarRef = document.getElementById("btnSidebarRefresh");
+let _arquivosFlat = [];
 
-let _arquivosFlat = [];   // para autocomplete
-let _explorerRaizAtual = null;
+function iconePorExt(nome) {
+  const ext = nome.includes(".") ? nome.split(".").pop().toLowerCase() : "";
+  return { html:"🌐",css:"🎨",js:"🟨",ts:"🔷",jsx:"⚛️",py:"🐍",json:"📋",md:"📝",svg:"🖼️" }[ext] || "📄";
+}
 
 function toggleSidebar(force) {
+  if (!sidebar) return;
   const abrir = force !== undefined ? force : sidebar.classList.contains("collapsed");
   sidebar.classList.toggle("collapsed", !abrir);
-  btnExplorer.classList.toggle("active", abrir);
+  if (btnExplorer) btnExplorer.classList.toggle("active", abrir);
   if (abrir) renderVirtualFS();
 }
-
 btnExplorer?.addEventListener("click", () => toggleSidebar());
-btnSidebarRef?.addEventListener("click", () => renderVirtualFS());
-
-document.addEventListener("keydown", e => {
-  if (e.altKey && e.key.toLowerCase() === "e") { e.preventDefault(); toggleSidebar(); }
-});
-
-function iconePorExt(nome, isDir) {
-  if (isDir) return "📁";
-  const ext = nome.includes(".") ? nome.split(".").pop().toLowerCase() : "";
-  const mapa = {
-    html:"🌐",htm:"🌐",js:"🟨",ts:"🔷",jsx:"⚛️",tsx:"⚛️",
-    py:"🐍",css:"🎨",scss:"🎨",json:"📋",md:"📝",
-    txt:"📄",sh:"⚙️",bat:"⚙️",png:"🖼️",jpg:"🖼️",
-    jpeg:"🖼️",gif:"🖼️",svg:"🖼️",mp4:"🎬",mp3:"🎵"
-  };
-  return mapa[ext] || "📄";
-}
-
-function extClass(nome) {
-  if (!nome.includes(".")) return "";
-  return `ext-${nome.split(".").pop().toLowerCase()}`;
-}
+document.getElementById("btnSidebarRefresh")?.addEventListener("click", renderVirtualFS);
 
 function renderVirtualFS() {
   if (!sidebarTree) return;
   sidebarTree.innerHTML = "";
+  const arqs = Object.keys(_virtualFS);
 
-  const arquivos = Object.keys(_virtualFS);
-
-  // Cabeçalho com download
-  const header = document.createElement("div");
-  header.style.cssText = "padding:8px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;";
-  header.innerHTML = `
-    <span style="font-size:10px;color:var(--text2);flex:1;font-family:var(--font-mono);">
-      ${arquivos.length} arquivo(s) virtual(is)
-    </span>`;
-  if (arquivos.length > 0) {
-    const btnDown = document.createElement("button");
-    btnDown.style.cssText = "background:var(--accent);color:#fff;border:none;border-radius:4px;padding:2px 8px;font-size:10px;cursor:pointer;";
-    btnDown.textContent = "⬇ ZIP";
-    btnDown.title = "Baixar todos os arquivos como ZIP";
-    btnDown.addEventListener("click", () => downloadAsZip(_virtualFS, _projetoNome));
-    header.appendChild(btnDown);
+  const hdr = document.createElement("div");
+  hdr.style.cssText = "padding:8px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;";
+  hdr.innerHTML = `<span style="font-size:10px;color:var(--text2);flex:1;font-family:var(--font-mono);">${arqs.length} arquivo(s)</span>`;
+  if (arqs.length > 0) {
+    const bd = document.createElement("button");
+    bd.style.cssText = "background:var(--accent);color:#fff;border:none;border-radius:4px;padding:2px 8px;font-size:10px;cursor:pointer;";
+    bd.textContent = "⬇ ZIP";
+    bd.addEventListener("click", downloadZip);
+    hdr.appendChild(bd);
   }
-  sidebarTree.appendChild(header);
+  sidebarTree.appendChild(hdr);
 
-  if (arquivos.length === 0) {
+  if (!arqs.length) {
     const empty = document.createElement("div");
-    empty.className = "sidebar-empty";
-    empty.innerHTML = `<div style="text-align:center;padding:20px 10px;">
-      <div style="font-size:24px;margin-bottom:8px;">📁</div>
-      <div style="font-size:11px;color:var(--text2);">Nenhum arquivo criado ainda.</div>
-      <div style="font-size:10px;color:var(--text3);margin-top:4px;">Os arquivos criados pelo agente<br>aparecerão aqui.</div>
-    </div>`;
+    empty.innerHTML = `<div style="text-align:center;padding:20px 10px;font-size:11px;color:var(--text2);">Nenhum arquivo criado.<br>Os arquivos do agente aparecerão aqui.</div>`;
     sidebarTree.appendChild(empty);
     return;
   }
 
-  // Organizar em árvore
+  // Monta árvore
   const tree = {};
-  for (const cam of arquivos) {
-    const partes = cam.split("/");
-    let no = tree;
-    for (let i = 0; i < partes.length - 1; i++) {
-      if (!no[partes[i]]) no[partes[i]] = { _isDir: true };
-      no = no[partes[i]];
+  for (const cam of arqs) {
+    const parts = cam.split("/");
+    let node = tree;
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (!node[parts[i]]) node[parts[i]] = { _dir: true };
+      node = node[parts[i]];
     }
-    no[partes[partes.length - 1]] = cam; // folha = caminho completo
+    node[parts[parts.length - 1]] = cam;
   }
 
-  function renderNode(node, prefix = "") {
+  function renderNode(node, depth = 0) {
     const frag = document.createDocumentFragment();
     for (const [nome, val] of Object.entries(node)) {
-      if (nome === "_isDir") continue;
-
+      if (nome === "_dir") continue;
       if (typeof val === "object") {
-        // Diretório
-        const wrapper = document.createElement("div");
-        wrapper.className = "tree-dir open";
+        const wrap = document.createElement("div");
+        wrap.className = "tree-dir open";
         const row = document.createElement("div");
         row.className = "tree-item";
-        row.style.paddingLeft = `${8 + prefix.length * 12}px`;
-        row.innerHTML = `
-          <span class="tree-dir-toggle">▾</span>
-          <span class="tree-item-icon">📁</span>
-          <span class="tree-item-name">${nome}</span>`;
-        row.addEventListener("click", () => wrapper.classList.toggle("open"));
-        const children = document.createElement("div");
-        children.className = "tree-dir-children";
-        children.appendChild(renderNode(val, prefix + " "));
-        wrapper.appendChild(row);
-        wrapper.appendChild(children);
-        frag.appendChild(wrapper);
+        row.style.paddingLeft = `${8 + depth * 14}px`;
+        row.innerHTML = `<span class="tree-dir-toggle">▾</span><span class="tree-item-icon">📁</span><span class="tree-item-name">${nome}</span>`;
+        row.addEventListener("click", () => wrap.classList.toggle("open"));
+        const ch = document.createElement("div");
+        ch.className = "tree-dir-children";
+        ch.appendChild(renderNode(val, depth + 1));
+        wrap.appendChild(row); wrap.appendChild(ch);
+        frag.appendChild(wrap);
       } else {
-        // Arquivo
-        const caminho = val;
+        const cam = val;
         const row = document.createElement("div");
-        row.className = `tree-item ${extClass(nome)}`;
-        row.style.paddingLeft = `${8 + prefix.length * 12}px`;
-        row.dataset.caminho = caminho;
-        row.dataset.nome    = nome;
-        row.innerHTML = `
-          <span class="tree-item-icon">${iconePorExt(nome, false)}</span>
-          <span class="tree-item-name" title="${caminho}">${nome}</span>
+        row.className = "tree-item";
+        row.style.paddingLeft = `${8 + depth * 14}px`;
+        row.innerHTML = `<span class="tree-item-icon">${iconePorExt(nome)}</span>
+          <span class="tree-item-name" title="${cam}">${nome}</span>
           <span class="tree-item-ref" title="Referenciar no chat">@</span>`;
-
         row.addEventListener("click", e => {
           if (e.target.classList.contains("tree-item-ref")) return;
           document.querySelectorAll(".tree-item.active").forEach(el => el.classList.remove("active"));
           row.classList.add("active");
-          abrirNoEditor(caminho, nome);
+          abrirNoEditor(cam, nome);
         });
-
         row.querySelector(".tree-item-ref").addEventListener("click", e => {
-          e.stopPropagation();
-          adicionarReferencia(caminho, nome);
+          e.stopPropagation(); adicionarReferencia(cam, nome);
         });
-
         frag.appendChild(row);
       }
     }
@@ -1218,121 +863,69 @@ function renderVirtualFS() {
   }
 
   sidebarTree.appendChild(renderNode(tree));
-
-  // Atualizar lista para autocomplete
-  _arquivosFlat = arquivos.map(cam => ({
-    nome:    cam.split("/").pop(),
-    caminho: cam,
-    ext:     cam.includes(".") ? cam.split(".").pop().toLowerCase() : ""
+  _arquivosFlat = arqs.map(cam => ({
+    nome: cam.split("/").pop(), caminho: cam,
+    ext:  cam.includes(".") ? cam.split(".").pop().toLowerCase() : ""
   }));
 }
 
-
 // ══════════════════════════════════════════════════════════════════════════════
-// EDITOR INLINE (usando Virtual FS)
+// EDITOR
 // ══════════════════════════════════════════════════════════════════════════════
+const editorPanel     = document.getElementById("editorPanel");
+const editorTabs      = document.getElementById("editorTabs");
+const editorTextarea  = document.getElementById("editorTextarea");
+const editorHighlight = document.getElementById("editorHighlight");
+const editorHighCode  = document.getElementById("editorHighlightCode");
+const editorGutter    = document.getElementById("editorGutter");
+const editorPath      = document.getElementById("editorPath");
+const editorStatus    = document.getElementById("editorStatus");
+const btnEditorSave   = document.getElementById("btnEditorSave");
+const btnEditorClose  = document.getElementById("btnEditorClose");
 
-const editorPanel         = document.getElementById("editorPanel");
-const editorTabs          = document.getElementById("editorTabs");
-const editorTextarea      = document.getElementById("editorTextarea");
-const editorHighlight     = document.getElementById("editorHighlight");
-const editorHighlightCode = document.getElementById("editorHighlightCode");
-const editorGutter        = document.getElementById("editorGutter");
-const editorPath          = document.getElementById("editorPath");
-const editorStatus        = document.getElementById("editorStatus");
-const btnEditorSave       = document.getElementById("btnEditorSave");
-const btnEditorClose      = document.getElementById("btnEditorClose");
+const EXT_LANG = { js:"javascript",jsx:"jsx",ts:"typescript",py:"python",html:"html",css:"css",
+  json:"json",md:"markdown",sh:"bash",rs:"rust",go:"go",java:"java",cpp:"cpp",php:"php",
+  yaml:"yaml",yml:"yaml",toml:"toml",sql:"sql",xml:"xml" };
 
-const EXT_LANG = {
-  js:"javascript",jsx:"jsx",ts:"typescript",tsx:"tsx",
-  py:"python",html:"html",htm:"html",css:"css",scss:"scss",
-  json:"json",md:"markdown",sh:"bash",bat:"batch",
-  rs:"rust",go:"go",java:"java",cpp:"cpp",c:"c",
-  php:"php",rb:"ruby",yaml:"yaml",yml:"yaml",toml:"toml",
-  sql:"sql",xml:"xml",vue:"markup",svelte:"markup"
-};
+const extParaLang = nome =>
+  EXT_LANG[nome.includes(".") ? nome.split(".").pop().toLowerCase() : ""] || "plaintext";
 
-function extParaLang(nome) {
-  const ext = nome.includes(".") ? nome.split(".").pop().toLowerCase() : "";
-  return EXT_LANG[ext] || "plaintext";
-}
-
-function escapeHtml(txt) {
-  return txt.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-}
-
-function atualizarHighlight(conteudo, lang) {
-  if (!editorHighlightCode || !editorHighlight) return;
-  const texto = conteudo.endsWith("\n") ? conteudo + " " : conteudo;
-  if (lang !== "plaintext" && window.Prism && Prism.languages[lang]) {
-    editorHighlightCode.innerHTML = Prism.highlight(texto, Prism.languages[lang], lang);
-  } else {
-    editorHighlightCode.textContent = texto;
+function atualizarHighlight(cont, lang) {
+  if (!editorHighCode) return;
+  const txt = cont.endsWith("\n") ? cont + " " : cont;
+  if (lang !== "plaintext" && window.Prism?.languages?.[lang])
+    editorHighCode.innerHTML = Prism.highlight(txt, Prism.languages[lang], lang);
+  else editorHighCode.textContent = txt;
+  if (editorHighlight) editorHighlight.className = `editor-highlight language-${lang}`;
+  if (editorGutter) {
+    const n = cont.split("\n").length;
+    editorGutter.innerHTML = Array.from({ length: n }, (_, i) => `<span>${i+1}</span>`).join("");
   }
-  editorHighlight.className = `editor-highlight language-${lang}`;
-  atualizarGutter(conteudo);
 }
 
-function atualizarGutter(conteudo) {
-  if (!editorGutter) return;
-  const linhas = conteudo.split("\n").length;
-  let html = "";
-  for (let i = 1; i <= linhas; i++) html += `<span>${i}</span>`;
-  editorGutter.innerHTML = html;
+let _tabs = [], _tabAtual = null;
+
+function abrirNoEditor(cam, nome) {
+  const ex = _tabs.find(t => t.caminho === cam);
+  if (ex) { ativarTab(cam); return; }
+  const cont = _virtualFS[cam] || "";
+  _tabs.push({ nome, caminho: cam, conteudo: cont, conteudoOrig: cont, dirty: false });
+  renderTabs(); ativarTab(cam);
+  if (editorPanel) editorPanel.classList.add("open");
 }
 
-function syncScroll() {
-  if (!editorHighlight) return;
-  editorHighlight.scrollTop  = editorTextarea.scrollTop;
-  editorHighlight.scrollLeft = editorTextarea.scrollLeft;
-  if (editorGutter) editorGutter.scrollTop = editorTextarea.scrollTop;
-}
-
-let _editorTabs    = [];
-let _editorTabAtual = null;
-
-// Abrir arquivo do Virtual FS no editor
-function abrirNoEditor(caminho, nome) {
-  const existente = _editorTabs.find(t => t.caminho === caminho);
-  if (existente) { ativarTab(caminho); return; }
-
-  const conteudo = _virtualFS[caminho] || "";
-  const tab = { nome, caminho, conteudo, conteudoOrig: conteudo, dirty: false };
-  _editorTabs.push(tab);
-  renderTabs();
-  ativarTab(caminho);
-  abrirEditorPanel();
-}
-
-function abrirEditorPanel()  { editorPanel.classList.add("open"); }
-
-function fecharEditorPanel() {
-  editorPanel.classList.remove("open");
-  _editorTabs     = [];
-  _editorTabAtual = null;
-  if (editorTabs)     editorTabs.innerHTML   = "";
-  if (editorTextarea) editorTextarea.value   = "";
-  if (editorPath)     editorPath.textContent = "";
-  if (editorStatus)   editorStatus.textContent = "";
-}
-
-function ativarTab(caminho) {
-  if (_editorTabAtual) {
-    const curr = _editorTabs.find(t => t.caminho === _editorTabAtual);
-    if (curr) curr.conteudo = editorTextarea.value;
-  }
-  _editorTabAtual = caminho;
-  const tab = _editorTabs.find(t => t.caminho === caminho);
-  if (!tab) return;
+function ativarTab(cam) {
+  if (_tabAtual) { const ct = _tabs.find(t=>t.caminho===_tabAtual); if (ct) ct.conteudo = editorTextarea?.value || ct.conteudo; }
+  _tabAtual = cam;
+  const tab = _tabs.find(t=>t.caminho===cam); if (!tab) return;
   const lang = extParaLang(tab.nome);
-  editorTextarea.value   = tab.conteudo;
-  editorPath.textContent = tab.caminho;
-  editorStatus.textContent = `${tab.conteudo.split("\n").length} linhas · ${lang}`;
+  if (editorTextarea) editorTextarea.value = tab.conteudo;
+  if (editorPath)   editorPath.textContent = tab.caminho;
+  if (editorStatus) editorStatus.textContent = `${tab.conteudo.split("\n").length} linhas · ${lang}`;
   setTimeout(() => {
     atualizarHighlight(tab.conteudo, lang);
-    if (lang !== "plaintext" && window.Prism && !Prism.languages[lang] && Prism.plugins?.autoloader) {
+    if (lang !== "plaintext" && window.Prism && !Prism.languages?.[lang] && Prism.plugins?.autoloader)
       Prism.plugins.autoloader.loadLanguages([lang], () => atualizarHighlight(tab.conteudo, lang));
-    }
   }, 0);
   renderTabs();
 }
@@ -1340,64 +933,56 @@ function ativarTab(caminho) {
 function renderTabs() {
   if (!editorTabs) return;
   editorTabs.innerHTML = "";
-  _editorTabs.forEach(tab => {
+  _tabs.forEach(tab => {
     const el = document.createElement("div");
-    el.className = `editor-tab${tab.caminho === _editorTabAtual ? " active" : ""}${tab.dirty ? " dirty" : ""}`;
+    el.className = `editor-tab${tab.caminho===_tabAtual?" active":""}${tab.dirty?" dirty":""}`;
     el.innerHTML = `<span class="editor-tab-name">${tab.nome}</span><span class="editor-tab-close">×</span>`;
-    el.addEventListener("click", e => {
-      if (e.target.classList.contains("editor-tab-close")) fecharTab(tab.caminho);
-      else ativarTab(tab.caminho);
-    });
+    el.addEventListener("click", e => e.target.classList.contains("editor-tab-close") ? fecharTab(tab.caminho) : ativarTab(tab.caminho));
     editorTabs.appendChild(el);
   });
 }
 
-function fecharTab(caminho) {
-  _editorTabs = _editorTabs.filter(t => t.caminho !== caminho);
-  if (_editorTabs.length === 0) { fecharEditorPanel(); return; }
-  if (_editorTabAtual === caminho) ativarTab(_editorTabs[0].caminho);
-  else renderTabs();
+function fecharTab(cam) {
+  _tabs = _tabs.filter(t=>t.caminho!==cam);
+  if (!_tabs.length) {
+    if (editorPanel) editorPanel.classList.remove("open");
+    _tabAtual = null;
+    if (editorTabs)    editorTabs.innerHTML = "";
+    if (editorTextarea) editorTextarea.value = "";
+    return;
+  }
+  if (_tabAtual === cam) ativarTab(_tabs[0].caminho); else renderTabs();
 }
 
 editorTextarea?.addEventListener("input", () => {
-  const tab = _editorTabs.find(t => t.caminho === _editorTabAtual);
-  if (tab) {
-    tab.dirty   = tab.conteudoOrig !== editorTextarea.value;
-    tab.conteudo = editorTextarea.value;
-    const linhas = editorTextarea.value.split("\n").length;
-    const lang   = extParaLang(tab.nome);
-    editorStatus.textContent = `${linhas} linhas${tab.dirty ? " · não salvo" : ""} · ${lang}`;
-    atualizarHighlight(tab.conteudo, lang);
-    renderTabs();
-  }
+  const tab = _tabs.find(t=>t.caminho===_tabAtual); if (!tab) return;
+  tab.dirty = tab.conteudoOrig !== editorTextarea.value;
+  tab.conteudo = editorTextarea.value;
+  if (editorStatus) editorStatus.textContent = `${editorTextarea.value.split("\n").length} linhas${tab.dirty?" · não salvo":""} · ${extParaLang(tab.nome)}`;
+  atualizarHighlight(tab.conteudo, extParaLang(tab.nome));
+  renderTabs();
 });
 
-editorTextarea?.addEventListener("scroll", syncScroll);
+editorTextarea?.addEventListener("scroll", () => {
+  if (editorHighlight) { editorHighlight.scrollTop = editorTextarea.scrollTop; editorHighlight.scrollLeft = editorTextarea.scrollLeft; }
+  if (editorGutter)    editorGutter.scrollTop = editorTextarea.scrollTop;
+});
 
 editorTextarea?.addEventListener("keydown", e => {
-  if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+  if ((e.ctrlKey||e.metaKey) && e.key==="s") { e.preventDefault(); salvarEditor(); }
+  if (e.key==="Tab") {
     e.preventDefault();
-    salvarArquivoEditor();
-  }
-  if (e.key === "Tab") {
-    e.preventDefault();
-    const start = editorTextarea.selectionStart;
-    const end   = editorTextarea.selectionEnd;
-    editorTextarea.value = editorTextarea.value.substring(0, start) + "  " + editorTextarea.value.substring(end);
-    editorTextarea.selectionStart = editorTextarea.selectionEnd = start + 2;
+    const s = editorTextarea.selectionStart;
+    editorTextarea.value = editorTextarea.value.slice(0,s) + "  " + editorTextarea.value.slice(editorTextarea.selectionEnd);
+    editorTextarea.selectionStart = editorTextarea.selectionEnd = s + 2;
   }
 });
 
-// Salvar no Virtual FS (sem backend)
-function salvarArquivoEditor() {
-  const tab = _editorTabs.find(t => t.caminho === _editorTabAtual);
-  if (!tab) return;
-  const conteudo = editorTextarea.value;
-  _virtualFS[tab.caminho] = conteudo;
-  tab.conteudoOrig = conteudo;
-  tab.dirty = false;
-  const linhas = conteudo.split("\n").length;
-  editorStatus.textContent = `✓ Salvo · ${linhas} linhas`;
+function salvarEditor() {
+  const tab = _tabs.find(t=>t.caminho===_tabAtual); if (!tab) return;
+  _virtualFS[tab.caminho] = editorTextarea?.value || "";
+  tab.conteudoOrig = editorTextarea?.value || ""; tab.dirty = false;
+  if (editorStatus) editorStatus.textContent = `✓ Salvo · ${(editorTextarea?.value||"").split("\n").length} linhas`;
   if (btnEditorSave) {
     btnEditorSave.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> salvo`;
     btnEditorSave.classList.add("saved");
@@ -1406,203 +991,164 @@ function salvarArquivoEditor() {
       btnEditorSave.classList.remove("saved");
     }, 2500);
   }
-  renderTabs();
-  renderVirtualFS();
+  renderTabs(); renderVirtualFS();
 }
 
-btnEditorSave?.addEventListener("click", salvarArquivoEditor);
-btnEditorClose?.addEventListener("click", fecharEditorPanel);
-
+btnEditorSave?.addEventListener("click", salvarEditor);
+btnEditorClose?.addEventListener("click", () => {
+  if (editorPanel) editorPanel.classList.remove("open");
+  _tabs = []; _tabAtual = null;
+});
 
 // ══════════════════════════════════════════════════════════════════════════════
-// REFERÊNCIA DE ARQUIVO (@) NO CHAT — usando Virtual FS
+// REFERÊNCIAS @ NO CHAT
 // ══════════════════════════════════════════════════════════════════════════════
-
 const refsBar          = document.getElementById("refsBar");
 const fileAutocomplete = document.getElementById("fileAutocomplete");
-let _refs     = [];
-let _acAtivo  = false;
-let _acQuery  = "";
-let _acSelecionado = -1;
+let _refs = [], _acAtivo = false, _acSel = -1;
 
-function adicionarReferencia(caminho, nome) {
-  if (_refs.find(r => r.caminho === caminho)) return;
-  const conteudo = _virtualFS[caminho] || "(arquivo não encontrado no projeto virtual)";
-  _refs.push({ nome, caminho, conteudo });
-  renderRefs();
-  addAviso(`📎 @${nome} referenciado`);
+function adicionarReferencia(cam, nome) {
+  if (_refs.find(r=>r.caminho===cam)) return;
+  _refs.push({ nome, caminho: cam, conteudo: _virtualFS[cam] || "(vazio)" });
+  renderRefs(); addAviso(`📎 @${nome} referenciado`);
 }
-
-function removerReferencia(caminho) {
-  _refs = _refs.filter(r => r.caminho !== caminho);
-  renderRefs();
-}
-
+function removerReferencia(cam) { _refs = _refs.filter(r=>r.caminho!==cam); renderRefs(); }
 function renderRefs() {
   if (!refsBar) return;
-  if (_refs.length === 0) { refsBar.innerHTML = ""; return; }
-  refsBar.innerHTML = _refs.map(r => `
-    <div class="ref-chip">
-      <span>📎 @${r.nome}</span>
-      <span class="ref-chip-remove" data-caminho="${r.caminho}">×</span>
-    </div>`).join("");
-  refsBar.querySelectorAll(".ref-chip-remove").forEach(el => {
-    el.addEventListener("click", () => removerReferencia(el.dataset.caminho));
-  });
+  refsBar.innerHTML = _refs.map(r =>
+    `<div class="ref-chip"><span>📎 @${r.nome}</span><span class="ref-chip-remove" data-cam="${r.caminho}">×</span></div>`
+  ).join("");
+  refsBar.querySelectorAll(".ref-chip-remove").forEach(el =>
+    el.addEventListener("click", () => removerReferencia(el.dataset.cam)));
 }
-
 function montarContextoRefs() {
-  if (_refs.length === 0) return "";
+  if (!_refs.length) return "";
   return "\n\n---\n" + _refs.map(r =>
     `📎 Arquivo: ${r.nome} (${r.caminho})\n\`\`\`\n${r.conteudo.slice(0, 8000)}\n\`\`\``
   ).join("\n\n---\n");
 }
 
-// Autocomplete
-inputMsg?.addEventListener("input", e => {
-  const val    = inputMsg.value;
-  const cursor = inputMsg.selectionStart;
-  const before = val.slice(0, cursor);
+inputMsg?.addEventListener("input", () => {
+  const before = inputMsg.value.slice(0, inputMsg.selectionStart);
   const match  = before.match(/@(\w*)$/);
-  if (match) {
-    _acQuery = match[1].toLowerCase();
-    _acAtivo = true;
-    renderAutocomplete(_acQuery);
-  } else {
-    fecharAutocomplete();
-  }
+  if (match) { _acAtivo = true; renderAC(match[1].toLowerCase()); }
+  else fecharAC();
 });
-
 inputMsg?.addEventListener("keydown", e => {
   if (!_acAtivo) return;
-  const itens = fileAutocomplete.querySelectorAll(".file-ac-item");
-  if (e.key === "ArrowDown") {
-    e.preventDefault();
-    _acSelecionado = Math.min(_acSelecionado + 1, itens.length - 1);
-    itens.forEach((el, i) => el.classList.toggle("selected", i === _acSelecionado));
-  } else if (e.key === "ArrowUp") {
-    e.preventDefault();
-    _acSelecionado = Math.max(_acSelecionado - 1, 0);
-    itens.forEach((el, i) => el.classList.toggle("selected", i === _acSelecionado));
-  } else if (e.key === "Enter" || e.key === "Tab") {
-    const sel = fileAutocomplete.querySelector(".file-ac-item.selected");
-    if (sel) { e.preventDefault(); selecionarAutocompletItem(sel.dataset.caminho, sel.dataset.nome); }
-  } else if (e.key === "Escape") {
-    fecharAutocomplete();
-  }
+  const items = fileAutocomplete?.querySelectorAll(".file-ac-item") || [];
+  if      (e.key === "ArrowDown")  { e.preventDefault(); _acSel=Math.min(_acSel+1,items.length-1); items.forEach((el,i)=>el.classList.toggle("selected",i===_acSel)); }
+  else if (e.key === "ArrowUp")    { e.preventDefault(); _acSel=Math.max(_acSel-1,0); items.forEach((el,i)=>el.classList.toggle("selected",i===_acSel)); }
+  else if (e.key==="Enter"||e.key==="Tab") { const s=fileAutocomplete?.querySelector(".selected"); if(s){e.preventDefault();selAC(s.dataset.cam,s.dataset.nome);} }
+  else if (e.key === "Escape") fecharAC();
 });
 
-function renderAutocomplete(query) {
-  const filtrado = query
-    ? _arquivosFlat.filter(f => f.nome.toLowerCase().includes(query))
-    : _arquivosFlat.slice(0, 12);
-  if (filtrado.length === 0) { fecharAutocomplete(); return; }
-  fileAutocomplete.innerHTML = filtrado.slice(0, 12).map((f, i) => `
-    <div class="file-ac-item${i === 0 ? " selected" : ""}" data-caminho="${f.caminho}" data-nome="${f.nome}">
-      <span class="file-ac-icon">${iconePorExt(f.nome, false)}</span>
+function renderAC(q) {
+  const f = (q ? _arquivosFlat.filter(f=>f.nome.toLowerCase().includes(q)) : _arquivosFlat).slice(0,12);
+  if (!f.length || !fileAutocomplete) { fecharAC(); return; }
+  fileAutocomplete.innerHTML = f.map((f,i) =>
+    `<div class="file-ac-item${i===0?" selected":""}" data-cam="${f.caminho}" data-nome="${f.nome}">
+      <span>${iconePorExt(f.nome)}</span>
       <span class="file-ac-name">${f.nome}</span>
       <span class="file-ac-path">${f.caminho}</span>
     </div>`).join("");
-  _acSelecionado = 0;
-  fileAutocomplete.classList.add("visible");
-  fileAutocomplete.style.display = "block";
+  _acSel = 0;
+  fileAutocomplete.classList.add("visible"); fileAutocomplete.style.display = "block";
   fileAutocomplete.querySelectorAll(".file-ac-item").forEach(el => {
-    el.addEventListener("click", () => selecionarAutocompletItem(el.dataset.caminho, el.dataset.nome));
-    el.addEventListener("mouseenter", () => {
-      fileAutocomplete.querySelectorAll(".file-ac-item").forEach(e => e.classList.remove("selected"));
-      el.classList.add("selected");
-    });
+    el.addEventListener("click", () => selAC(el.dataset.cam, el.dataset.nome));
+    el.addEventListener("mouseenter", () => { fileAutocomplete.querySelectorAll(".file-ac-item").forEach(e=>e.classList.remove("selected")); el.classList.add("selected"); });
   });
 }
+function selAC(cam, nome) {
+  if (!inputMsg) return;
+  const before = inputMsg.value.slice(0, inputMsg.selectionStart);
+  inputMsg.value = before.replace(/@\w*$/, "") + inputMsg.value.slice(inputMsg.selectionStart);
+  fecharAC(); adicionarReferencia(cam, nome); inputMsg.focus();
+}
+function fecharAC() {
+  _acAtivo = false; _acSel = -1;
+  if (fileAutocomplete) { fileAutocomplete.classList.remove("visible"); fileAutocomplete.style.display = "none"; fileAutocomplete.innerHTML = ""; }
+}
+document.addEventListener("click", e => { if (fileAutocomplete && !fileAutocomplete.contains(e.target) && e.target !== inputMsg) fecharAC(); });
 
-function selecionarAutocompletItem(caminho, nome) {
-  const val    = inputMsg.value;
-  const cursor = inputMsg.selectionStart;
-  const before = val.slice(0, cursor);
-  const after  = val.slice(cursor);
-  inputMsg.value = before.replace(/@\w*$/, "") + after;
-  fecharAutocomplete();
-  adicionarReferencia(caminho, nome);
-  inputMsg.focus();
+// ══════════════════════════════════════════════════════════════════════════════
+// CHAVES NOMEADAS
+// ══════════════════════════════════════════════════════════════════════════════
+const _keysKey = prov => `agente_dev_named_keys_${prov}`;
+const getChavesNomeadas = prov => {
+  try { return JSON.parse(_store.getItem(_keysKey(prov)) || "[]"); } catch { return []; }
+};
+const salvarChaveNomeada = (prov, nome, key, url) => {
+  const lista = getChavesNomeadas(prov);
+  const idx   = lista.findIndex(k=>k.nome===nome);
+  const item  = { nome, key, url: url||"" };
+  if (idx>=0) lista[idx]=item; else lista.push(item);
+  _store.setItem(_keysKey(prov), JSON.stringify(lista));
+};
+
+function renderChavesSalvas(prov) {
+  const container = document.getElementById("credsSavedKeys");
+  const sel       = document.getElementById("selSavedKey");
+  if (!container || !sel) return;
+  const lista = getChavesNomeadas(prov);
+  container.style.display = lista.length ? "flex" : "none";
+  sel.innerHTML = `<option value="">— selecionar —</option>` +
+    lista.map(k => `<option value="${k.nome}">${k.nome}</option>`).join("");
 }
 
-function fecharAutocomplete() {
-  _acAtivo = false;
-  _acSelecionado = -1;
-  if (fileAutocomplete) {
-    fileAutocomplete.classList.remove("visible");
-    fileAutocomplete.style.display = "none";
-    fileAutocomplete.innerHTML = "";
-  }
-}
-
-document.addEventListener("click", e => {
-  if (fileAutocomplete && !fileAutocomplete.contains(e.target) && e.target !== inputMsg) fecharAutocomplete();
+document.getElementById("selSavedKey")?.addEventListener("change", () => {
+  const sel  = document.getElementById("selSavedKey");
+  const btnD = document.getElementById("btnDeletarKey");
+  const item = getChavesNomeadas(provedorAtual).find(k=>k.nome===sel.value);
+  if (!item) { if (btnD) btnD.style.display="none"; return; }
+  if (inputApiKey) inputApiKey.value = item.key;
+  if (item.url && inputApiUrl) inputApiUrl.value = item.url;
+  lsSet(`key_${provedorAtual}`, item.key);
+  if (item.url) lsSet(`url_${provedorAtual}`, item.url);
+  if (btnD) btnD.style.display = "flex";
+  addAviso(`✓ Chave "${item.nome}" carregada`);
+  atualizarStatusAPI();
+  carregarModelosDaAPI(provedorAtual);
 });
 
+document.getElementById("btnDeletarKey")?.addEventListener("click", () => {
+  const sel = document.getElementById("selSavedKey");
+  if (!sel?.value) return;
+  const lista = getChavesNomeadas(provedorAtual).filter(k=>k.nome!==sel.value);
+  _store.setItem(_keysKey(provedorAtual), JSON.stringify(lista));
+  renderChavesSalvas(provedorAtual);
+  addAviso("✓ Chave removida");
+  const btnD = document.getElementById("btnDeletarKey");
+  if (btnD) btnD.style.display = "none";
+});
 
 // ══════════════════════════════════════════════════════════════════════════════
-// RESIZE HANDLES
+// INIT
 // ══════════════════════════════════════════════════════════════════════════════
-
-function criarResizeHandle(targetEl, side) {
-  const handle = document.createElement("div");
-  handle.className = "resize-handle";
-  handle.dataset.side = side;
-
-  let startX, startW;
-
-  handle.addEventListener("mousedown", e => {
-    e.preventDefault();
-    startX = e.clientX;
-    startW = targetEl.offsetWidth;
-
-    const onMove = e => {
-      const dx   = e.clientX - startX;
-      const newW = side === "right" ? startW + dx : startW - dx;
-      if (newW > 80) {
-        targetEl.style.width    = newW + "px";
-        targetEl.style.minWidth = newW + "px";
-      }
-    };
-    const onUp = () => {
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-    };
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup",   onUp);
-  });
-
-  handle.addEventListener("dblclick", () => {
-    const defaults = { sidebar: "240px", editorPanel: "420px" };
-    const def = defaults[targetEl.id];
-    if (def) { targetEl.style.width = def; targetEl.style.minWidth = def; }
-  });
-
-  return handle;
-}
-
 document.addEventListener("DOMContentLoaded", () => {
-  const sb = document.getElementById("sidebar");
-  const ep = document.getElementById("editorPanel");
-  if (sb) {
-    sb.style.maxWidth = "none";
-    const h = criarResizeHandle(sb, "right");
-    sb.appendChild(h);
+  // Badge de status da API
+  const pill = document.querySelector(".status-pill");
+  if (pill?.parentElement) {
+    const badge = document.createElement("div");
+    badge.id = "status-api-nome";
+    badge.style.cssText = "font-size:10px;font-family:var(--font-mono);color:var(--text2);padding:0 8px;border-left:1px solid var(--border);margin-left:4px;";
+    pill.parentElement.appendChild(badge);
   }
-  if (ep) {
-    ep.style.maxWidth = "none";
-    const h = criarResizeHandle(ep, "left");
-    ep.appendChild(h);
-  }
-});
 
-document.addEventListener("mousedown", e => {
-  if (e.target.classList.contains("resize-handle")) {
-    const panel = e.target.closest(".sidebar, .editor-panel");
-    if (panel) panel.classList.add("resizing-active");
-  }
-});
-document.addEventListener("mouseup", () => {
-  document.querySelectorAll(".resizing-active").forEach(el => el.classList.remove("resizing-active"));
+  initProvedor();
+  setStatus("pronto", "pronto");
+  setModoAgente(lsGet("modo_agente") || "agente");
+
+  const pnEl = document.getElementById("projetoNome");
+  if (pnEl) pnEl.textContent = _projetoNome;
+  const ppEl = document.getElementById("projetoPath");
+  if (ppEl) ppEl.textContent = "(virtual)";
+
+  _convSidebarAberta = lsGet("conv_sidebar_aberta") !== "0";
+  const sb = document.getElementById("convSidebar");
+  if (sb && !_convSidebarAberta) sb.classList.add("collapsed");
+
+  _iniciarNovaConversa();
+  renderizarConvSidebar();
+  renderVirtualFS();
 });

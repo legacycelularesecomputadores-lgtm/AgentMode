@@ -79,7 +79,11 @@
         <div class="ctrl-group">
           <label class="ctrl-label">modelo</label>
           <div class="select-wrap">
-            <select id="selModelo"><option>carregando…</option></select>
+            <input id="selModelo" type="text" list="modeloSugestoes"
+              placeholder="modelo (ex: llama-3.3-70b-versatile)"
+              autocomplete="off" spellcheck="false"
+              style="min-width:220px;max-width:340px;"/>
+            <datalist id="modeloSugestoes"></datalist>
             <span class="select-arrow">▾</span>
           </div>
         </div>
@@ -232,6 +236,8 @@
   </div><!-- /app-main -->
 </div><!-- /app-root -->
 
+<script src="agent.js"></script>
+<script src="agent.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
