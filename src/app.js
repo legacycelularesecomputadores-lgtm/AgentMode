@@ -216,10 +216,11 @@ function carregarModelos(prov) {
   const lista = MODELOS[prov] || [];
   const saved = lsGet(`modelo_${prov}`);
 
-  const dl = document.getElementById("modeloSugestoes");
-  if (dl) dl.innerHTML = lista.map(m => `<option value="${m}">`).join("");
+  if (selModelo) {
+    selModelo.innerHTML = lista.map(m => `<option value="${m}">${m}</option>`).join("");
+  }
 
-  modeloAtual = (saved && (lista.includes(saved) || lista.length === 0)) ? saved : (lista[0] || "");
+  modeloAtual = (saved && lista.includes(saved)) ? saved : (lista[0] || "");
   if (selModelo) selModelo.value = modeloAtual;
 
   // Tenta buscar da API em background
@@ -253,9 +254,14 @@ async function carregarModelosDaAPI(prov) {
     const hardcoded = MODELOS[prov] || [];
     const merged = [...new Set([...hardcoded, ...apiIds])].sort();
 
-    // Atualiza datalist com lista mesclada
+    // Atualiza select com lista mesclada
     const dl = document.getElementById("modeloSugestoes");
     if (dl) dl.innerHTML = merged.map(m => `<option value="${m}">`).join("");
+    if (selModelo && selModelo.tagName === "SELECT") {
+      const currentVal = selModelo.value;
+      selModelo.innerHTML = merged.map(m => `<option value="${m}">${m}</option>`).join("");
+      if (currentVal && merged.includes(currentVal)) selModelo.value = currentVal;
+    }
 
     // Só muda o valor selecionado se nenhum estiver salvo
     const saved = lsGet(`modelo_${prov}`);
