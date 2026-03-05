@@ -1,4 +1,5 @@
-// agent.js — Lógica do agente. Todas as chamadas passam pelo proxy /api/llm.
+(function() {
+// agent.js — Lógica do agente. Todas as chamadas passam pelo proxy /.netlify/functions/proxy.
 
 const API_CONFIGS = {
   groq: {
@@ -42,7 +43,7 @@ const API_CONFIGS = {
   }
 };
 
-window.API_CONFIGS = API_CONFIGS;
+window.AgenteDev_API_CONFIGS = API_CONFIGS;
 
 // ── Tools ──────────────────────────────────────────────────────────────────────
 const TOOLS = [
@@ -360,6 +361,7 @@ async function runAgent({
   const MAX_STEPS = 12;
   const state = { vfs, todos };
 
+  const API_CONFIGS = window.AgenteDev_API_CONFIGS;
   const cfg = API_CONFIGS[fonte] || API_CONFIGS.groq;
 
   // URL final de chat completions
@@ -394,7 +396,7 @@ async function runAgent({
 
     let resp;
     try {
-      resp = await fetch("/api/llm", {
+      resp = await fetch("/.netlify/functions/proxy", {
         method: "POST",
         signal,
         headers: { "Content-Type": "application/json" },
@@ -513,3 +515,5 @@ async function runAgent({
 }
 
 window.AgenteDev = { runAgent, executarTool, TOOLS };
+
+})();

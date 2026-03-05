@@ -237,7 +237,7 @@ async function carregarModelosDaAPI(prov) {
 
   try {
     const params = new URLSearchParams({ base, key: apiKey });
-    const resp = await fetch(`/api/llm?${params}`);
+    const resp = await fetch(`/.netlify/functions/proxy?${params}`);
     if (!resp.ok) return;
     const data = await resp.json();
     const ids = (data.data || [])
