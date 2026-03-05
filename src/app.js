@@ -117,6 +117,16 @@ const LABELS_KEY = {
   custom:     "API Key",
 };
 
+const LINKS_KEY = {
+  groq:       { url: "https://console.groq.com/keys",              label: "Obter chave grátis no Groq" },
+  gemini:     { url: "https://aistudio.google.com/app/apikey",     label: "Obter chave grátis no Google AI Studio" },
+  openrouter: { url: "https://openrouter.ai/keys",                 label: "Obter chave no OpenRouter" },
+  scitely:    { url: "https://platform.scitely.com",               label: "Obter chave no Scitely" },
+  llmapi:     { url: "https://app.llmapi.ai",                      label: "Obter chave no LLM API" },
+  puter:      { url: "https://puter.com/dashboard",                label: "Obter token no Puter" },
+  custom:     null,
+};
+
 const PRECISA_URL = new Set(["custom"]);
 
 // ── Estado ────────────────────────────────────────────────────────────────────
@@ -182,6 +192,19 @@ function mostrarCredsBar(prov) {
   }
   if (PRECISA_URL.has(prov) && inputApiUrl) inputApiUrl.value = lsGet(`url_${prov}`) || "";
   renderChavesSalvas(prov);
+
+  // Atualiza link para obter API key
+  const linkDiv  = document.getElementById("credsApiLink");
+  const linkEl   = document.getElementById("linkApiKey");
+  const linkText = document.getElementById("linkApiKeyText");
+  const info = LINKS_KEY[prov];
+  if (linkDiv && linkEl && info) {
+    linkEl.href = info.url;
+    if (linkText) linkText.textContent = info.label;
+    linkDiv.style.display = "block";
+  } else if (linkDiv) {
+    linkDiv.style.display = "none";
+  }
 }
 
 btnMostrarKey?.addEventListener("click", () => {
