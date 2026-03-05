@@ -226,34 +226,36 @@ function _sincTipoBtns() {
   if (pw) pw.dataset.tipo = tipoAtual;
 }
 
-// Botão LOCAL
-document.getElementById("btnLocal")?.addEventListener("click", () => {
-  tipoAtual = "local";
-  lsSet("tipo_provedor", "local");
-  _sincTipoBtns();
-  const lista = PROVEDORES_LOCAL;
-  selProvedor.innerHTML = lista.map(o =>
-    `<option value="${o.value}">${o.label}</option>`).join("");
-  provedorAtual = lsGet("provedor_local_ultimo") || lista[0].value;
-  selProvedor.value = provedorAtual;
-  lsSet("provedor_atual", provedorAtual);
-  onProvedorMudou();
-});
+// Botão LOCAL — registrado no DOMContentLoaded
+function _registrarBotoesTipo() {
+  document.getElementById("btnLocal")?.addEventListener("click", () => {
+    tipoAtual = "local";
+    lsSet("tipo_provedor", "local");
+    _sincTipoBtns();
+    const lista = PROVEDORES_LOCAL;
+    selProvedor.innerHTML = lista.map(o =>
+      `<option value="${o.value}">${o.label}</option>`).join("");
+    provedorAtual = lsGet("provedor_local_ultimo") || lista[0].value;
+    selProvedor.value = provedorAtual;
+    lsSet("provedor_atual", provedorAtual);
+    onProvedorMudou();
+  });
 
-// Botão NUVEM
-document.getElementById("btnNuvem")?.addEventListener("click", () => {
-  tipoAtual = "nuvem";
-  lsSet("tipo_provedor", "nuvem");
-  _sincTipoBtns();
-  const lista = PROVEDORES_NUVEM;
-  selProvedor.innerHTML = lista.map(o =>
-    `<option value="${o.value}">${o.label}</option>`).join("");
-  provedorAtual = lsGet("provedor_nuvem_ultimo") || "groq";
-  if (!lista.find(p => p.value === provedorAtual)) provedorAtual = lista[0].value;
-  selProvedor.value = provedorAtual;
-  lsSet("provedor_atual", provedorAtual);
-  onProvedorMudou();
-});
+  // Botão NUVEM
+  document.getElementById("btnNuvem")?.addEventListener("click", () => {
+    tipoAtual = "nuvem";
+    lsSet("tipo_provedor", "nuvem");
+    _sincTipoBtns();
+    const lista = PROVEDORES_NUVEM;
+    selProvedor.innerHTML = lista.map(o =>
+      `<option value="${o.value}">${o.label}</option>`).join("");
+    provedorAtual = lsGet("provedor_nuvem_ultimo") || "groq";
+    if (!lista.find(p => p.value === provedorAtual)) provedorAtual = lista[0].value;
+    selProvedor.value = provedorAtual;
+    lsSet("provedor_atual", provedorAtual);
+    onProvedorMudou();
+  });
+}
 
 selProvedor.addEventListener("change", () => {
   provedorAtual = selProvedor.value;
@@ -447,7 +449,7 @@ function carregarModelos(prov) {
 // Busca lista de modelos direto no endpoint local /v1/models
 async function carregarModelosLocal(prov) {
   const savedUrl = lsGet(`url_${prov}`);
-  const base = (savedUrl || URLS_DEFAULT_LOCAL[prov] || "").replace(/\\/+$/, "");
+  const base = (savedUrl || URLS_DEFAULT_LOCAL[prov] || "").replace(/\/+$/, "");
   if (!base) return;
 
   try {
@@ -475,8 +477,6 @@ async function carregarModelosLocal(prov) {
   } catch (e) {
     // silencioso — servidor pode não estar rodando
   }
-}
-
 }
 
 async function carregarModelosDaAPI(prov) {
@@ -1479,6 +1479,7 @@ document.addEventListener("DOMContentLoaded", () => {
     pill.parentElement.appendChild(badge);
   }
 
+  _registrarBotoesTipo();   // ← local / nuvem toggle
   initProvedor();
   setStatus("pronto", "pronto");
   setModoAgente(lsGet("modo_agente") || "agente");

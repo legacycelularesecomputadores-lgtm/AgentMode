@@ -2163,26 +2163,33 @@ body.resizing .resize-handle::after {
 .ctx-bar-inner.warn  { background: var(--amber); }
 .ctx-bar-inner.danger{ background: var(--red);   }
 
-/* ── Título mobile (oculto no desktop) ──────────────────────────────────── */
+/* ── Elementos mobile-only (ocultos no desktop) ──────────────────────────── */
 .topbar-mobile-title { display: none; }
-
-/* ── Backdrop (oculto no desktop) ───────────────────────────────────────── */
-.conv-backdrop { display: none; }
+.conv-backdrop       { display: none; }
 
 
 /* ══════════════════════════════════════════════════════════════════════════
-   MOBILE — layout responsivo unificado (≤ 768px)
+   MOBILE  ≤ 768px
+   Abordagem: topbar usa CSS Grid (2 rows explícitas).
+   html/body recebem height: 100dvh para respeitar barra do browser mobile.
 ══════════════════════════════════════════════════════════════════════════ */
 @media (max-width: 768px) {
+
+  /* ── Corrige viewport no Chrome/Safari mobile (barra de endereço) ─────── */
+  html, body {
+    height: 100dvh !important;
+    height: -webkit-fill-available !important;
+  }
+  .app-root  { height: 100dvh !important; height: -webkit-fill-available !important; }
+  .app-main  { height: 100dvh !important; height: -webkit-fill-available !important; }
 
   /* ── 1. CONV-SIDEBAR — drawer overlay ─────────────────────────────────── */
   .conv-sidebar {
     display: flex !important;
     position: fixed !important;
     top: 0 !important; bottom: 0 !important; left: 0 !important;
-    width: 280px !important;
-    min-width: 280px !important;
-    max-width: 85vw !important;
+    width: min(280px, 85vw) !important;
+    min-width: unset !important;
     z-index: 300;
     opacity: 1 !important;
     pointer-events: none;
@@ -2197,8 +2204,6 @@ body.resizing .resize-handle::after {
   .conv-sidebar.collapsed {
     transform: translateX(-100%) !important;
     pointer-events: none !important;
-    width: 280px !important;
-    min-width: 280px !important;
   }
 
   /* ── 2. BACKDROP ─────────────────────────────────────────────────────── */
@@ -2216,26 +2221,31 @@ body.resizing .resize-handle::after {
     opacity: 1; pointer-events: all;
   }
 
-  /* ── 3. TOPBAR — 2 linhas com display:block ──────────────────────────── */
+  /* ── 3. TOPBAR — grid 2 rows ──────────────────────────────────────────── */
   .topbar {
-    display: block !important;
+    /* Desliga altura fixa */
     height: auto !important;
     min-height: unset !important;
+    /* Grid: row 1 = 46px (título), row 2 = 40px (controles) */
+    display: grid !important;
+    grid-template-rows: 46px 40px;
+    grid-template-columns: 1fr;
     padding: 0 !important;
-    overflow: visible !important;
+    gap: 0;
+    align-items: stretch;
   }
 
-  /* Linha 1: hamburguer + título */
+  /* Row 1 — ocupa toda a coluna */
   .topbar-left {
+    grid-row: 1;
+    grid-column: 1;
     display: flex !important;
-    width: 100% !important;
-    height: 46px;
     align-items: center;
     padding: 0 12px 0 8px;
-    gap: 6px;
+    gap: 8px;
     border-bottom: 1px solid var(--border);
     background: var(--bg2);
-    box-sizing: border-box;
+    overflow: hidden;
   }
   .topbar-mobile-title {
     display: flex;
@@ -2246,6 +2256,10 @@ body.resizing .resize-handle::after {
     color: var(--text);
     letter-spacing: .02em;
     flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .topbar-mobile-dot {
     display: inline-block;
@@ -2257,22 +2271,21 @@ body.resizing .resize-handle::after {
     flex-shrink: 0;
   }
 
-  /* Linha 2: controles com scroll horizontal */
+  /* Row 2 — faixa de controles com scroll horizontal */
   .topbar-controls {
+    grid-row: 2;
+    grid-column: 1;
     display: flex !important;
-    width: 100% !important;
-    flex-wrap: nowrap;
     align-items: center;
+    flex-wrap: nowrap;
     gap: 6px;
     padding: 0 8px;
-    height: 40px;
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
     background: var(--bg3);
     border-bottom: 1px solid var(--border);
-    box-sizing: border-box;
   }
   .topbar-controls::-webkit-scrollbar { display: none; }
 
@@ -2281,38 +2294,42 @@ body.resizing .resize-handle::after {
   .brand-ver           { display: none !important; }
   .btn-explorer-toggle { display: none !important; }
 
-  /* Selects */
+  /* Selects compactos */
   .select-wrap select {
     font-size: 11px !important;
     padding: 2px 18px 2px 7px !important;
     min-width: unset !important;
-    max-width: unset !important;
     height: 28px !important;
   }
   #selModelo            { min-width: 130px !important; max-width: 165px !important; }
   .provedor-wrap select { min-width: 52px  !important; max-width: 78px  !important; }
-  .select-arrow         { right: 5px; font-size: 8px; }
 
-  /* Seg-ctrl */
+  /* Seg-ctrl compacto */
   .seg-ctrl { padding: 2px; gap: 1px; }
-  .seg-btn  { padding: 2px 7px; font-size: 10px; height: 26px; gap: 3px; }
+  .seg-btn  { padding: 2px 7px; font-size: 10px; height: 26px; gap: 3px; white-space: nowrap; }
   .seg-btn svg { width: 9px; height: 9px; }
 
   /* Botão projeto */
-  .btn-projeto { padding: 2px 7px; font-size: 10px; height: 26px; max-width: 90px; flex-shrink: 0; }
-  .btn-projeto span { max-width: 55px; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: middle; }
+  .btn-projeto {
+    padding: 2px 7px; font-size: 10px; height: 26px;
+    max-width: 90px; flex-shrink: 0; min-width: unset;
+  }
+  .btn-projeto span {
+    max-width: 55px; overflow: hidden;
+    text-overflow: ellipsis; display: inline-block; vertical-align: middle;
+  }
 
-  /* Status pill fixo à direita */
+  /* Status pill — cola à direita */
   .status-pill {
     position: sticky; right: 0;
     background: var(--bg3);
     padding: 2px 7px; font-size: 10px;
     flex-shrink: 0; margin-left: auto;
-    box-shadow: -10px 0 12px var(--bg3);
+    box-shadow: -10px 0 14px var(--bg3);
   }
 
   /* ── 4. CREDS BAR ─────────────────────────────────────────────────────── */
-  .creds-bar { padding: 8px 10px; }
+  .creds-bar   { padding: 8px 10px; }
   .creds-inner { flex-direction: column; align-items: stretch; gap: 8px; }
   .creds-field-group { width: 100%; flex-wrap: wrap; gap: 6px; }
   .creds-input, .creds-input-url, .creds-input-name {
@@ -2320,14 +2337,14 @@ body.resizing .resize-handle::after {
   }
   .key-input-wrap { width: 100%; }
   .btn-save-login { width: 100%; justify-content: center; }
-  #credsApiLink { margin-bottom: 0; }
-  .creds-projeto { margin-left: 0; }
+  #credsApiLink   { margin-bottom: 0; }
+  .creds-projeto  { margin-left: 0; }
 
   /* ── 5. LAYOUT PRINCIPAL ─────────────────────────────────────────────── */
   .main-layout  { flex-direction: column; }
   .sidebar      { display: none !important; }
   .editor-panel { display: none !important; }
-  .center-col   { width: 100% !important; flex: 1; min-width: unset !important; }
+  .center-col   { width: 100% !important; flex: 1; min-width: unset !important; min-height: 0; }
 
   /* ── 6. CHAT ──────────────────────────────────────────────────────────── */
   .chat-inner { padding: 0 10px; max-width: 100%; }
@@ -2335,7 +2352,7 @@ body.resizing .resize-handle::after {
   .tool-pill, .plan-block, .agent-section, .arquivos-card { max-width: 96% !important; }
 
   /* ── 7. FOOTER / INPUT ────────────────────────────────────────────────── */
-  .footer    { padding: 8px 10px 12px; }
+  .footer    { padding: 8px 10px 12px; flex-shrink: 0; }
   .input-row { gap: 6px; }
   .msg-input { font-size: 16px; padding: 9px 12px; }
   .btn-send, .btn-stop { width: 42px; height: 42px; flex-shrink: 0; }
@@ -2349,9 +2366,9 @@ body.resizing .resize-handle::after {
   .toolbar-btn      { padding: 4px 8px; }
 }
 
-/* ── Telas muito pequenas (≤ 400px) ────────────────────────────────────── */
+/* ── Telas muito pequenas ≤ 400px ───────────────────────────────────────── */
 @media (max-width: 400px) {
-  .topbar-mobile-title { font-size: 12px; }
+  .topbar { grid-template-rows: 44px 38px; }
   .seg-btn { padding: 2px 5px; }
   .msg-bubble { font-size: 13px !important; max-width: 93% !important; padding: 8px 11px; }
   .chat-inner { padding: 0 6px; }
