@@ -801,13 +801,6 @@ body {
 .tc-raciocinio         { background: var(--amber); }
 .tc-usar_template      { background: #f0a060;      }
 
-/* ── Responsivo ──────────────────────────────────────────────────────────── */
-@media (max-width: 640px) {
-  .brand-ver, .ctrl-label { display: none; }
-  .creds-input { width: 180px; }
-  .chat-inner { padding: 0 12px; }
-}
-
 /* ══════════════════════════════════════════════════════════════════════════ */
 /* v2.1 ADDITIONS — Segmented Control, Btn-Projeto, Creds updates           */
 /* ══════════════════════════════════════════════════════════════════════════ */
@@ -2131,208 +2124,23 @@ body.resizing .resize-handle::after {
 .msg-meta {
   display: flex;
   align-items: center;
-  gap: 4px;
-  flex-wrap: wrap;
-  padding: 2px 4px;
-  margin-top: 3px;
-  font-size: 10px;
-  font-family: var(--font-mono);
-  color: var(--text3);
-  opacity: 0.7;
-}
-.msg-row.user .msg-meta { justify-content: flex-end; }
-.msg-row.agent .msg-meta { justify-content: flex-start; }
-.msg-meta-sep { opacity: 0.4; }
-.msg-meta-hora, .msg-meta-tempo, .msg-meta-tokens {
-  white-space: nowrap;
-}
-
-/* ══════════════════════════════════════════════════════════════════════════ */
-/* MOBILE RESPONSIVO COMPLETO                                                */
-/* ══════════════════════════════════════════════════════════════════════════ */
-@media (max-width: 768px) {
-
-  /* Topbar compacta */
-  .topbar {
-    flex-wrap: wrap;
-    gap: 6px;
-    padding: 6px 10px;
-    min-height: unset;
-  }
-  .brand-ver { display: none; }
-  .ctrl-label { display: none; }
-  .topbar-left, .topbar-center, .topbar-right {
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-
-  /* Select de provedor e modelo menores */
-  .provedor-wrap select, #selModelo {
-    min-width: 120px !important;
-    max-width: 160px !important;
-    font-size: 11px;
-  }
-
-  /* Barra de credenciais em coluna */
-  .creds-bar {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-    padding: 8px 10px;
-  }
-  .creds-input { width: 100% !important; box-sizing: border-box; }
-  .key-input-wrap { width: 100%; }
-
-  /* Layout principal — sem sidebar e editor */
-  .main-layout {
-    flex-direction: column;
-  }
-  .sidebar {
-    display: none !important;
-  }
-  .editor-panel {
-    display: none !important;
-  }
-  .center-col {
-    width: 100% !important;
-    min-width: unset !important;
-    flex: 1;
-  }
-
-  /* Chat */
-  .chat-inner {
-    padding: 0 8px;
-  }
-  .msg-bubble {
-    max-width: 90vw !important;
-    font-size: 13px;
-  }
-  .msg-row.user { justify-content: flex-end; }
-  .msg-row.agent { justify-content: flex-start; }
-
-  /* Input area */
-  .footer { padding: 6px 8px; }
-  .input-row { gap: 6px; }
-  .msg-input {
-    font-size: 14px;
-    padding: 8px 10px;
-  }
-  .btn-send, .btn-stop {
-    width: 38px;
-    height: 38px;
-    flex-shrink: 0;
-  }
-  .footer-hint { display: none; }
-
-  /* Histórico / conv-sidebar — oculta no mobile */
-  .conv-sidebar { display: none !important; }
-
-  /* Toolbar de arquivo — botões menores */
-  .toolbar-btn span { display: none; }
-  .toolbar-btn { padding: 4px 6px; }
-
-  /* Seg control compacto */
-  .seg-btn { padding: 3px 7px; font-size: 10px; }
-
-  /* Botão projeto menor */
-  .btn-projeto { max-width: 120px; font-size: 10px; }
-}
-
-@media (max-width: 480px) {
-  .topbar { padding: 4px 8px; }
-  .msg-bubble { font-size: 12px; max-width: 95vw !important; }
-  .chat-inner { padding: 0 4px; }
-  .btn-send, .btn-stop { width: 34px; height: 34px; }
-  #selModelo { min-width: 100px !important; max-width: 130px !important; }
-}
-
-/* ══════════════════════════════════════════════════════════════════════════ */
-/* MSG-META — metadados por mensagem                                         */
-/* ══════════════════════════════════════════════════════════════════════════ */
-.msg-meta {
-  display: flex;
-  align-items: center;
   flex-wrap: wrap;
   gap: 4px 6px;
+  padding: 0 2px;
+  margin-top: 4px;
   font-size: 10px;
   font-family: var(--font-mono);
   color: var(--text3);
-  margin-top: 4px;
-  padding: 0 2px;
   opacity: 0.75;
   transition: opacity .2s;
 }
-.msg-row:hover .msg-meta { opacity: 1; }
-.msg-meta-sep { color: var(--border2); }
-.msg-meta-hora  { color: var(--text3); }
-.msg-meta-tempo { color: var(--teal); }
-.msg-meta-tokens { color: var(--purple); }
-
-/* ══════════════════════════════════════════════════════════════════════════ */
-/* MOBILE — layout responsivo para smartphones                               */
-/* ══════════════════════════════════════════════════════════════════════════ */
-@media (max-width: 768px) {
-  /* Esconde sidebar de conversas no mobile */
-  .conv-sidebar { display: none !important; }
-
-  /* Topbar vira scroll horizontal */
-  .topbar { overflow-x: auto; overflow-y: hidden; padding: 0 8px; gap: 6px; }
-  .topbar::-webkit-scrollbar { display: none; }
-  .topbar-controls { gap: 6px; flex-wrap: nowrap; }
-
-  /* Esconde labels de texto na topbar */
-  .ctrl-label { display: none !important; }
-  .brand-ver  { display: none !important; }
-  .btn-projeto span { display: none; }
-  .btn-projeto { padding: 4px 8px; min-width: unset; }
-
-  /* Selects menores */
-  .select-wrap select { font-size: 11px; padding: 3px 20px 3px 7px; max-width: 110px !important; min-width: unset !important; }
-
-  /* Seg-ctrl menor */
-  .seg-btn { padding: 3px 7px; font-size: 10px; }
-  .seg-btn span { display: none; }
-
-  /* Creds bar em coluna */
-  .creds-inner { flex-direction: column; align-items: flex-start; gap: 6px; padding: 8px 12px; }
-  .creds-input { width: 100% !important; max-width: 100%; box-sizing: border-box; }
-  .creds-field-group { width: 100%; }
-  .key-input-wrap { width: 100%; }
-  #credsApiLink { margin-bottom: 0; }
-
-  /* Botão salvar largo */
-  .btn-save-login { width: 100%; justify-content: center; }
-
-  /* Chat ocupa tudo */
-  .main-layout { flex-direction: column; }
-  .sidebar { display: none !important; }
-  .chat-outer { width: 100% !important; }
-
-  /* Bolhas mais largas */
-  .msg-bubble { max-width: 92% !important; font-size: 13px; }
-  .tool-pill, .plan-block { max-width: 95% !important; }
-
-  /* Input area */
-  .footer-inner { padding: 8px 10px; gap: 6px; }
-  .input-msg { font-size: 14px; }
-
-  /* Status pill */
-  .status-pill { font-size: 10px; padding: 2px 7px; }
-
-  /* Esconde botão explorador de arquivos */
-  .btn-explorer-toggle { display: none; }
-
-  /* Meta mais compacta no mobile */
-  .msg-meta { font-size: 9px; gap: 3px 4px; }
-}
-
-@media (max-width: 400px) {
-  .topbar { padding: 0 4px; }
-  .select-wrap select { max-width: 90px !important; }
-  .seg-btn { padding: 2px 5px; }
-  .chat-inner { padding: 0 6px; }
-  .msg-bubble { font-size: 12.5px; padding: 8px 11px; }
-}
+.msg-row:hover .msg-meta    { opacity: 1; }
+.msg-row.user  .msg-meta    { justify-content: flex-end; }
+.msg-row.agent .msg-meta    { justify-content: flex-start; }
+.msg-meta-sep               { color: var(--border2); opacity: 1; }
+.msg-meta-hora              { color: var(--text3); white-space: nowrap; }
+.msg-meta-tempo             { color: var(--teal);  white-space: nowrap; }
+.msg-meta-tokens            { color: var(--purple); white-space: nowrap; }
 
 /* ── Medidor de contexto ─────────────────────────────────────────────────── */
 .ctx-bar-outer {
@@ -2355,8 +2163,270 @@ body.resizing .resize-handle::after {
 .ctx-bar-inner.warn  { background: var(--amber); }
 .ctx-bar-inner.danger{ background: var(--red);   }
 
+/* ── Título mobile (oculto no desktop) ──────────────────────────────────── */
+.topbar-mobile-title { display: none; }
+
+/* ── Backdrop (oculto no desktop) ───────────────────────────────────────── */
+.conv-backdrop { display: none; }
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   MOBILE — layout responsivo unificado (≤ 768px)
+   Inspirado em ChatGPT / Claude.ai mobile:
+   • Sidebar vira drawer overlay com backdrop
+   • Topbar em 2 linhas: título + controls scrollável
+   • Chat full-width, input limpo
+══════════════════════════════════════════════════════════════════════════ */
 @media (max-width: 768px) {
-  #ctxMeterWrap { display: none !important; }
-  .footer-hint { font-size: 10px; gap: 4px; flex-wrap: wrap; }
-  .footer-hint kbd { font-size: 9px; }
+
+  /* ── 1. CONV-SIDEBAR — drawer overlay ─────────────────────────────────── */
+  .conv-sidebar {
+    display: flex !important;          /* sempre renderiza */
+    position: fixed !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 280px !important;
+    min-width: 280px !important;
+    max-width: 85vw !important;
+    z-index: 300;
+    opacity: 1 !important;
+    pointer-events: none;              /* começa inacessível */
+    transform: translateX(-100%);     /* escondida à esquerda */
+    /* substitui a transição de width por transform */
+    transition: transform .28s cubic-bezier(.4,0,.2,1) !important;
+    box-shadow: 6px 0 32px rgba(0,0,0,.55);
+  }
+  /* quando JS remove .collapsed, drawer desliza para dentro */
+  .conv-sidebar:not(.collapsed) {
+    transform: translateX(0) !important;
+    pointer-events: all !important;
+  }
+  /* .collapsed mantém transform fora da tela */
+  .conv-sidebar.collapsed {
+    transform: translateX(-100%) !important;
+    pointer-events: none !important;
+    /* reset dos overrides de width que a animação desktop usa */
+    width: 280px !important;
+    min-width: 280px !important;
+  }
+
+  /* ── 2. BACKDROP ─────────────────────────────────────────────────────── */
+  .conv-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .52);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    z-index: 299;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .28s ease;
+  }
+  /* ativa o backdrop quando sidebar está aberta (CSS sibling trick) */
+  .conv-sidebar:not(.collapsed) ~ .conv-backdrop {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  /* ── 3. TOPBAR — 2 linhas ─────────────────────────────────────────────── */
+  .topbar {
+    flex-wrap: wrap;
+    height: auto !important;
+    min-height: unset !important;
+    padding: 0 !important;
+    gap: 0;
+    align-items: stretch;
+  }
+
+  /* Linha 1: hamburger + título da app */
+  .topbar-left {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    padding: 0 8px 0 6px;
+    gap: 4px;
+    flex: 1;                           /* ocupa o espaço da linha 1 */
+    border-bottom: 1px solid var(--border);
+  }
+
+  .topbar-mobile-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: .02em;
+    padding-left: 2px;
+    user-select: none;
+  }
+  .topbar-mobile-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--amber);
+    box-shadow: 0 0 7px var(--amber);
+    animation: pulse-dot 3s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+
+  /* Linha 2: controles (scroll horizontal) */
+  .topbar-controls {
+    width: 100%;
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 10px;
+    height: 44px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .topbar-controls::-webkit-scrollbar { display: none; }
+
+  /* Labels das ctrl-groups escondidos */
+  .ctrl-label  { display: none !important; }
+  .brand-ver   { display: none !important; }
+
+  /* Selects compactos mas legíveis */
+  .select-wrap select {
+    font-size: 11px;
+    padding: 3px 20px 3px 8px;
+    min-width: unset !important;
+    max-width: unset;
+    height: 30px;
+  }
+  #selModelo {
+    min-width: 145px !important;
+    max-width: 190px !important;
+  }
+  .provedor-wrap select {
+    min-width: 58px !important;
+    max-width: 85px !important;
+  }
+
+  /* Seg-ctrl compacto — mantém texto */
+  .seg-ctrl { padding: 2px; }
+  .seg-btn {
+    padding: 3px 8px;
+    font-size: 10px;
+    height: 28px;
+    white-space: nowrap;
+    gap: 3px;
+  }
+  .seg-btn svg { width: 10px; height: 10px; }
+
+  /* Botão projeto menor */
+  .btn-projeto {
+    padding: 3px 8px;
+    font-size: 10px;
+    height: 28px;
+    max-width: 110px;
+    flex-shrink: 0;
+  }
+  .btn-projeto span {
+    max-width: 72px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: inline-block;
+  }
+
+  /* Esconde o botão de explorador (sem sentido no mobile) */
+  .btn-explorer-toggle { display: none !important; }
+
+  /* Status pill: fica fixo à direita da faixa de controles */
+  .status-pill {
+    position: sticky;
+    right: 0;
+    background: var(--bg2);
+    padding: 2px 8px;
+    font-size: 10px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-left: auto;
+    box-shadow: -8px 0 12px var(--bg2);   /* fade ao sobrepor controles */
+  }
+
+  /* ── 4. CREDS BAR ─────────────────────────────────────────────────────── */
+  .creds-bar { padding: 8px 10px; }
+  .creds-inner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .creds-field-group {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .creds-input,
+  .creds-input-url,
+  .creds-input-name {
+    width: 100% !important;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  .key-input-wrap { width: 100%; }
+  .btn-save-login { width: 100%; justify-content: center; }
+  #credsApiLink   { margin-bottom: 0; }
+  .creds-projeto  { margin-left: 0; }
+
+  /* ── 5. LAYOUT PRINCIPAL ─────────────────────────────────────────────── */
+  .main-layout     { flex-direction: column; }
+  .sidebar         { display: none !important; }
+  .editor-panel    { display: none !important; }
+  .center-col      { width: 100% !important; flex: 1; min-width: unset !important; }
+
+  /* ── 6. CHAT ──────────────────────────────────────────────────────────── */
+  .chat-inner      { padding: 0 10px; max-width: 100%; }
+  .msg-bubble {
+    max-width: 88% !important;
+    font-size: 13.5px;
+  }
+  /* Tool pills, planos e agent-sections mais largos */
+  .tool-pill,
+  .plan-block,
+  .agent-section,
+  .arquivos-card  { max-width: 96% !important; }
+
+  /* ── 7. FOOTER / INPUT ────────────────────────────────────────────────── */
+  .footer      { padding: 8px 10px 12px; }
+  .input-row   { gap: 6px; }
+  .msg-input {
+    font-size: 16px;   /* evita zoom automático no iOS */
+    padding: 9px 12px;
+  }
+  .btn-send,
+  .btn-stop {
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+  }
+  .footer-hint      { display: none; }
+  #ctxMeterWrap     { display: none !important; }
+  .refs-bar         { padding: 4px 8px 0; }
+
+  /* ── 8. MISC ──────────────────────────────────────────────────────────── */
+  .msg-meta           { font-size: 9px; gap: 3px 4px; }
+  .toolbar-btn span   { display: none; }
+  .toolbar-btn        { padding: 4px 8px; }
+}
+
+/* ── Telas muito pequenas (≤ 400px) ────────────────────────────────────── */
+@media (max-width: 400px) {
+  .topbar-mobile-title { font-size: 12px; }
+  .seg-btn             { padding: 2px 6px; }
+  .msg-bubble          { font-size: 13px !important; max-width: 93% !important; padding: 8px 11px; }
+  .chat-inner          { padding: 0 6px; }
+  .btn-send, .btn-stop { width: 38px; height: 38px; }
+  .select-wrap select  { max-width: unset; }
+  #selModelo           { min-width: 120px !important; }
 }

@@ -47,6 +47,9 @@
     </div>
   </aside>
 
+  <!-- ── BACKDROP MOBILE (overlay quando sidebar aberta) ─────────────── -->
+  <div class="conv-backdrop" id="convBackdrop"></div>
+
   <!-- ── COLUNA DIREITA ───────────────────────────────────────────── -->
   <div class="app-main" id="appMain">
 
@@ -56,6 +59,9 @@
         <button class="btn-icon topbar-menu-btn" id="btnTopbarMenu" title="Conversas">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
         </button>
+        <span class="topbar-mobile-title">
+          <span class="topbar-mobile-dot"></span>Agente Dev
+        </span>
       </div>
       <div class="topbar-controls">
         <div class="ctrl-group">
@@ -249,5 +255,16 @@
 
 <script src="agent.js?v=202603050007"></script>
 <script src="app.js?v=202603050007"></script>
+<script>
+  /* ── Mobile backdrop: fecha a conv-sidebar ao clicar fora ── */
+  (function() {
+    var backdrop = document.getElementById('convBackdrop');
+    var sidebar  = document.getElementById('convSidebar');
+    if (!backdrop || !sidebar) return;
+    backdrop.addEventListener('click', function() {
+      sidebar.classList.add('collapsed');
+    });
+  })();
+</script>
 </body>
 </html>
