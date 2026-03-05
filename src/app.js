@@ -237,7 +237,7 @@ async function carregarModelosDaAPI(prov) {
 
   try {
     const params = new URLSearchParams({ base, key: apiKey });
-    const resp = await fetch(`/.netlify/functions/proxy?${params}`);
+    const resp = await fetch(`https://falling-shadow-94c.legacycelularesecomputadores.workers.dev?${params}`);
     if (!resp.ok) return;
     const data = await resp.json();
     const apiIds = (data.data || [])

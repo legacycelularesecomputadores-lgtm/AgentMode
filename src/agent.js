@@ -398,7 +398,7 @@ async function runAgent({
 
     let resp;
     try {
-      resp = await fetch("/.netlify/functions/proxy", {
+      resp = await fetch("https://falling-shadow-94c.legacycelularesecomputadores.workers.dev", {
         method: "POST",
         signal,
         headers: { "Content-Type": "application/json" },
