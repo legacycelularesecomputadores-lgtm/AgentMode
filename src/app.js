@@ -227,7 +227,7 @@ function carregarModelos(prov) {
 }
 
 async function carregarModelosDaAPI(prov) {
-  const cfg    = window.API_CONFIGS?.[prov];
+  const cfg    = window.AgenteDev_API_CONFIGS?.[prov];
   const apiKey = lsGet(`key_${prov}`);
   const base   = prov === "custom"
     ? (lsGet(`url_${prov}`) || "").replace(/\/chat\/completions.*/, "")
@@ -240,23 +240,28 @@ async function carregarModelosDaAPI(prov) {
     const resp = await fetch(`/.netlify/functions/proxy?${params}`);
     if (!resp.ok) return;
     const data = await resp.json();
-    const ids = (data.data || [])
+    const apiIds = (data.data || [])
       .map(m => m.id || m.name)
       .filter(id => id &&
         !id.includes("embedding") && !id.includes("tts") &&
         !id.includes("whisper")   && !id.includes("dall") &&
-        !id.includes("image")     && !id.includes("video"))
-      .sort();
-    if (ids.length === 0) return;
+        !id.includes("image")     && !id.includes("video"));
 
-    // Atualiza datalist
+    if (apiIds.length === 0) return;
+
+    // MESCLA: hardcoded + da API, sem duplicatas
+    const hardcoded = MODELOS[prov] || [];
+    const merged = [...new Set([...hardcoded, ...apiIds])].sort();
+
+    // Atualiza datalist com lista mesclada
     const dl = document.getElementById("modeloSugestoes");
-    if (dl) dl.innerHTML = ids.map(m => `<option value="${m}">`).join("");
+    if (dl) dl.innerHTML = merged.map(m => `<option value="${m}">`).join("");
 
-    // Só muda o valor se o atual não estiver na lista nova
+    // Só muda o valor selecionado se nenhum estiver salvo
     const saved = lsGet(`modelo_${prov}`);
-    if (!saved || !ids.includes(saved)) {
-      modeloAtual = ids[0];
+    const current = selModelo?.value?.trim();
+    if (!saved && !current) {
+      modeloAtual = hardcoded[0] || merged[0];
       if (selModelo) selModelo.value = modeloAtual;
     }
   } catch {}

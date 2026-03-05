@@ -336,6 +336,8 @@ Tarefas COMPLEXAS (3+ arquivos):
 // ── Traduzir erros ─────────────────────────────────────────────────────────────
 function traduzirErro(status, body) {
   const b = (body || "").toLowerCase();
+  if (b.includes('just a moment') || b.includes('cf-browser-verification') || b.includes('cloudflare'))
+    return '🛡️ Scitely/Cloudflare bloqueou a requisição do servidor Netlify. Tente: Groq, OpenRouter ou Gemini.';
   if (status === 401 || (b.includes("invalid") && b.includes("key")))
     return "🔑 API Key inválida. Verifique nas configurações.";
   if (status === 402 || (b.includes("insufficient") && b.includes("credit")))

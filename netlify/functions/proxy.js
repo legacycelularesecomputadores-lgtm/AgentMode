@@ -1,8 +1,4 @@
-// netlify/functions/proxy.js
-// Proxy serverless: browser chama /api/llm (mesmo domínio, sem CORS),
-// esta função repassa para qualquer API de LLM externamente.
-// Funciona com Netlify quando deploy é feito via GitHub.
-
+// Proxy serverless — contorna CORS e Cloudflare dos provedores
 exports.handler = async (event) => {
   const CORS = {
     "Access-Control-Allow-Origin":  "*",
@@ -14,21 +10,32 @@ exports.handler = async (event) => {
     return { statusCode: 204, headers: CORS, body: "" };
   }
 
-  // GET /api/llm?base=URL&key=KEY → lista modelos do provedor
+  // Headers que imitam um browser real (contorna Cloudflare bot protection)
+  const BROWSER_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Accept": "application/json, text/event-stream, */*",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Cache-Control": "no-cache",
+    "Pragma": "no-cache",
+  };
+
+  // GET ?base=URL&key=KEY → lista modelos
   if (event.httpMethod === "GET") {
     const p = event.queryStringParameters || {};
     if (!p.base) return { statusCode: 400, headers: CORS, body: "param 'base' required" };
     try {
       const resp = await fetch(p.base.replace(/\/+$/, "") + "/models", {
         headers: {
+          ...BROWSER_HEADERS,
           "Content-Type": "application/json",
           ...(p.key ? { "Authorization": "Bearer " + p.key } : {})
         }
       });
+      const text = await resp.text();
       return {
         statusCode: resp.status,
         headers: { ...CORS, "Content-Type": "application/json" },
-        body: await resp.text()
+        body: text
       };
     } catch (e) {
       return { statusCode: 502, headers: CORS, body: JSON.stringify({ error: e.message }) };
@@ -52,6 +59,7 @@ exports.handler = async (event) => {
     const upstream = await fetch(targetUrl, {
       method: "POST",
       headers: {
+        ...BROWSER_HEADERS,
         "Content-Type": "application/json",
         ...(apiKey ? { "Authorization": "Bearer " + apiKey } : {}),
         ...(extraHeaders || {}),
@@ -60,6 +68,16 @@ exports.handler = async (event) => {
     });
 
     const text = await upstream.text();
+
+    // Detecta página de challenge do Cloudflare
+    if (text.includes("Just a moment") || text.includes("cf-browser-verification")) {
+      return {
+        statusCode: 403,
+        headers: CORS,
+        body: JSON.stringify({ error: "O provedor bloqueou a requisição (Cloudflare). Tente outro provedor." })
+      };
+    }
+
     return {
       statusCode: upstream.status,
       headers: {
@@ -71,7 +89,6 @@ exports.handler = async (event) => {
       body: text,
     };
   } catch (e) {
-    console.error("proxy error:", e);
     return { statusCode: 502, headers: CORS, body: JSON.stringify({ error: e.message }) };
   }
 };
