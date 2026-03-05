@@ -314,13 +314,46 @@ function atualizarStatusAPI() {
   el.style.color = key ? "var(--green)" : "var(--orange)";
 }
 
+// ── Medidor de contexto ───────────────────────────────────────────────────────
+const CTX_LIMITS = {
+  groq: 32768, gemini: 128000, openrouter: 32768,
+  scitely: 32768, llmapi: 32768, puter: 32768, custom: 32768,
+};
+let _ctxTokensAcum = 0;
+
+function atualizarCtxMeter(tokens) {
+  _ctxTokensAcum = Math.max(_ctxTokensAcum, tokens);
+  const limit = CTX_LIMITS[provedorAtual] || 32768;
+  const pct = Math.min(100, Math.round((_ctxTokensAcum / limit) * 100));
+  const bar = document.getElementById("ctxBarInner");
+  const lbl = document.getElementById("ctxPct");
+  if (bar) {
+    bar.style.width = pct + "%";
+    bar.className = "ctx-bar-inner" + (pct >= 85 ? " danger" : pct >= 60 ? " warn" : "");
+  }
+  if (lbl) lbl.textContent = pct + "%";
+  if (pct >= 85) addAviso("⚠️ Contexto quase cheio (" + pct + "%). Considere iniciar uma nova conversa.");
+}
+
+function resetCtxMeter() {
+  _ctxTokensAcum = 0;
+  const bar = document.getElementById("ctxBarInner");
+  const lbl = document.getElementById("ctxPct");
+  if (bar) { bar.style.width = "0%"; bar.className = "ctx-bar-inner"; }
+  if (lbl) lbl.textContent = "0%";
+}
+
 function setStatus(fase, texto) {
   if (statusDot) statusDot.className = "status-dot " + (fase || "");
   if (statusTxt) statusTxt.textContent = texto || fase || "pronto";
 }
 
 // ── UI helpers ────────────────────────────────────────────────────────────────
-function addMensagem(quem, texto) {
+function _horaAgora() {
+  return new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
+function addMensagem(quem, texto, meta) {
   const row = document.createElement("div");
   row.className = `msg-row ${quem}`;
   const label = document.createElement("div");
@@ -330,11 +363,23 @@ function addMensagem(quem, texto) {
   bubble.className = "msg-bubble";
   bubble.textContent = texto;
   bubble.style.cssText = "white-space:pre-wrap;word-wrap:break-word;";
+
+  // Metadados da mensagem
+  const metaEl = document.createElement("div");
+  metaEl.className = "msg-meta";
+  const hora = (meta && meta.hora) ? meta.hora : _horaAgora();
+  let metaHtml = `<span class="msg-meta-hora">🕐 ${hora}</span>`;
+  if (meta && meta.tokens)  metaHtml += `<span class="msg-meta-sep">·</span><span class="msg-meta-tokens">🔢 ${meta.tokens} tokens</span>`;
+  if (meta && meta.tempo)   metaHtml += `<span class="msg-meta-sep">·</span><span class="msg-meta-tempo">⚡ ${meta.tempo}s</span>`;
+  metaEl.innerHTML = metaHtml;
+
   row.appendChild(label);
   row.appendChild(bubble);
+  row.appendChild(metaEl);
   row.appendChild(_criarBotaoCopiar(() => bubble));
   chatInner.appendChild(row);
   scrollToBottom();
+  return row;
 }
 
 function addAviso(texto) {
@@ -422,7 +467,7 @@ async function enviarMensagem(texto) {
     return;
   }
 
-  addMensagem("user", texto);
+  addMensagem("user", texto, { hora: _horaAgora() });
   _registrarMensagem("user", texto);
   if (inputMsg) { inputMsg.value = ""; inputMsg.style.height = "auto"; }
   gerando = true;
@@ -438,9 +483,13 @@ async function enviarMensagem(texto) {
   _abort = new AbortController();
 
   let agentRow = null, agentBubble = null, bufTxt = "";
+  let _metaEl = null;
+  let _inicioResposta = null;
+  let _totalTokens = 0;
 
   function garantirBolha() {
     if (agentRow) return;
+    _inicioResposta = Date.now();
     const r = document.createElement("div");
     r.className = "msg-row agent";
     const l = document.createElement("div");
@@ -449,18 +498,33 @@ async function enviarMensagem(texto) {
     const b = document.createElement("div");
     b.className = "msg-bubble";
     b.style.cssText = "white-space:pre-wrap;word-wrap:break-word;";
-    r.appendChild(l); r.appendChild(b); r.appendChild(_criarBotaoCopiar(() => b));
+    const m = document.createElement("div");
+    m.className = "msg-meta";
+    m.innerHTML = `<span class="msg-meta-hora">🕐 ${_horaAgora()}</span>`;
+    r.appendChild(l); r.appendChild(b); r.appendChild(m); r.appendChild(_criarBotaoCopiar(() => b));
     chatInner.appendChild(r);
-    agentRow = r; agentBubble = b;
+    agentRow = r; agentBubble = b; _metaEl = m;
   }
 
-  const concluir = () => {
+  const concluir = (usage) => {
     removerSpinner();
     if (bufTxt.trim()) {
       _registrarMensagem("agente", bufTxt.trim());
       _llmHist.push({ role: "assistant", content: bufTxt.trim() });
       if (_llmHist.length > 16) _llmHist.splice(0, _llmHist.length - 16);
       _salvarConversaAtual();
+    }
+    // Atualiza metadados finais
+    if (_metaEl && _inicioResposta) {
+      const tempoSeg = ((Date.now() - _inicioResposta) / 1000).toFixed(1);
+      const tokens = (usage && (usage.total_tokens || usage.completion_tokens)) || _totalTokens || null;
+      let metaHtml = `<span class="msg-meta-hora">🕐 ${_metaEl.querySelector(".msg-meta-hora")?.textContent?.replace("🕐 ","") || _horaAgora()}</span>`;
+      metaHtml += `<span class="msg-meta-sep">·</span><span class="msg-meta-tempo">⚡ ${tempoSeg}s</span>`;
+      if (tokens) metaHtml += `<span class="msg-meta-sep">·</span><span class="msg-meta-tokens">🔢 ${tokens} tokens</span>`;
+      _metaEl.innerHTML = metaHtml;
+
+      // Atualiza medidor de contexto
+      if (tokens) atualizarCtxMeter(tokens);
     }
     setStatus("pronto", "pronto");
     gerando = false;
@@ -548,7 +612,7 @@ async function enviarMensagem(texto) {
       },
       onStatus(fase) { setStatus(fase, fase + "…"); },
       onAviso(msg)   { removerSpinner(); addAviso(msg); },
-      onFim:  concluir,
+      onFim:  (usage) => concluir(usage),
       onErro(msg) { removerSpinner(); addAviso("❌ " + msg); concluir(); },
     });
   } catch (e) {
@@ -617,6 +681,7 @@ document.getElementById("btnProjeto")?.addEventListener("click", () => {
 document.getElementById("btnLimpar")?.addEventListener("click", () => {
   _salvarConversaAtual(); _llmHist = [];
   _iniciarNovaConversa();
+  resetCtxMeter();
   chatInner.innerHTML = `<div class="welcome-msg"><div class="welcome-icon">⬡</div><p>Nova conversa.</p></div>`;
   renderizarConvSidebar();
 });

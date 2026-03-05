@@ -434,9 +434,11 @@ async function runAgent({
     let finishReason = null;
     let inThink = false;
     let thinkBuf = "";
+    let lastUsage = null;
 
     for await (const chunk of lerSSE(resp.body)) {
       if (signal?.aborted) break;
+      if (chunk.usage) lastUsage = chunk.usage;
       const choice = chunk.choices?.[0];
       if (!choice) continue;
       if (choice.finish_reason) finishReason = choice.finish_reason;
@@ -513,7 +515,7 @@ async function runAgent({
     onArquivosCriados(Object.keys(state.vfs), state.vfs);
   }
 
-  onFim();
+  onFim(lastUsage);
 }
 
 window.AgenteDev = { runAgent, executarTool, TOOLS };
