@@ -2238,17 +2238,20 @@ body.resizing .resize-handle::after {
     padding: 0 !important;
     gap: 0;
     align-items: stretch;
+    overflow: visible !important;
   }
 
-  /* Linha 1: hamburger + título da app */
+  /* Linha 1: hamburger + título — ocupa 100% para forçar controls à linha 2 */
   .topbar-left {
-    height: 48px;
+    flex: 0 0 100%;         /* ← chave: 100% da largura = wrap */
+    width: 100%;
+    height: 46px;
     display: flex;
     align-items: center;
-    padding: 0 8px 0 6px;
-    gap: 4px;
-    flex: 1;                           /* ocupa o espaço da linha 1 */
+    padding: 0 12px 0 8px;
+    gap: 6px;
     border-bottom: 1px solid var(--border);
+    background: var(--bg2);
   }
 
   .topbar-mobile-title {
@@ -2273,20 +2276,21 @@ body.resizing .resize-handle::after {
     flex-shrink: 0;
   }
 
-  /* Linha 2: controles (scroll horizontal) */
+  /* Linha 2: controles com scroll horizontal suave */
   .topbar-controls {
+    flex: 0 0 100%;
     width: 100%;
     display: flex;
     flex-wrap: nowrap;
     align-items: center;
-    gap: 8px;
-    padding: 5px 10px;
-    height: 44px;
+    gap: 6px;
+    padding: 0 10px;
+    height: 40px;
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
-    background: var(--bg2);
+    background: var(--bg3);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
   }
@@ -2296,63 +2300,61 @@ body.resizing .resize-handle::after {
   .ctrl-label  { display: none !important; }
   .brand-ver   { display: none !important; }
 
-  /* Selects compactos mas legíveis */
+  /* Selects compactos */
   .select-wrap select {
     font-size: 11px;
-    padding: 3px 20px 3px 8px;
+    padding: 2px 18px 2px 7px;
     min-width: unset !important;
     max-width: unset;
-    height: 30px;
+    height: 28px;
   }
   #selModelo {
-    min-width: 145px !important;
-    max-width: 190px !important;
+    min-width: 130px !important;
+    max-width: 170px !important;
   }
   .provedor-wrap select {
-    min-width: 58px !important;
-    max-width: 85px !important;
+    min-width: 54px !important;
+    max-width: 80px !important;
   }
 
-  /* Seg-ctrl compacto — mantém texto */
-  .seg-ctrl { padding: 2px; }
+  /* Seg-ctrl compacto */
+  .seg-ctrl { padding: 2px; gap: 1px; }
   .seg-btn {
-    padding: 3px 8px;
+    padding: 2px 7px;
     font-size: 10px;
-    height: 28px;
+    height: 26px;
     white-space: nowrap;
     gap: 3px;
   }
   .seg-btn svg { width: 10px; height: 10px; }
 
-  /* Botão projeto menor */
+  /* Botão projeto discreto */
   .btn-projeto {
-    padding: 3px 8px;
+    padding: 2px 7px;
     font-size: 10px;
-    height: 28px;
-    max-width: 110px;
+    height: 26px;
+    max-width: 100px;
     flex-shrink: 0;
   }
   .btn-projeto span {
-    max-width: 72px;
+    max-width: 60px;
     overflow: hidden;
     text-overflow: ellipsis;
     display: inline-block;
+    vertical-align: middle;
   }
 
-  /* Esconde o botão de explorador (sem sentido no mobile) */
-  .btn-explorer-toggle { display: none !important; }
-
-  /* Status pill: fica fixo à direita da faixa de controles */
+  /* Status pill: cola à direita com fade */
   .status-pill {
     position: sticky;
     right: 0;
-    background: var(--bg2);
+    background: var(--bg3);
     padding: 2px 8px;
     font-size: 10px;
     white-space: nowrap;
     flex-shrink: 0;
     margin-left: auto;
-    box-shadow: -8px 0 12px var(--bg2);   /* fade ao sobrepor controles */
+    box-shadow: -10px 0 12px var(--bg3);
   }
 
   /* ── 4. CREDS BAR ─────────────────────────────────────────────────────── */
