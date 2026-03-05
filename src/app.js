@@ -127,9 +127,45 @@ const LINKS_KEY = {
   custom:     null,
 };
 
-const PRECISA_URL = new Set(["custom"]);
+const PRECISA_URL = new Set(["custom", "local_custom", "local_pocketpal"]);
+
+// ── Provedores Locais (IA que roda no próprio dispositivo/rede local) ─────────
+const PROVEDORES_LOCAL = [
+  { value: "local_ollama",    label: "🦙 Ollama" },
+  { value: "local_lmstudio",  label: "🖥️ LM Studio" },
+  { value: "local_llamacpp",  label: "⚙️ llama.cpp" },
+  { value: "local_pocketpal", label: "📱 Pocket Pal (Android)" },
+  { value: "local_custom",    label: "🔧 URL Local Custom" },
+];
+
+const PROVEDORES_NUVEM = PROVEDORES; // alias
+
+const MODELOS_LOCAL = {
+  local_ollama:    ["llama3.2", "llama3.1", "llama3", "mistral", "mixtral", "codellama", "phi3", "gemma2", "qwen2.5", "deepseek-r1"],
+  local_lmstudio:  ["local-model", "llama-3.2-3b", "mistral-7b", "phi-3-mini", "gemma-2-2b"],
+  local_llamacpp:  ["local-model"],
+  local_pocketpal: ["phi-3-mini-4k", "llama-3.2-1b", "gemma-2-2b", "mistral-7b"],
+  local_custom:    [],
+};
+
+const LABELS_KEY_LOCAL = {
+  local_ollama:    "URL do Ollama (padrão: localhost:11434)",
+  local_lmstudio:  "URL do LM Studio (padrão: localhost:1234)",
+  local_llamacpp:  "URL do llama.cpp (padrão: localhost:8080)",
+  local_pocketpal: "IP do dispositivo Android (ex: 192.168.1.x:8080)",
+  local_custom:    "URL base da API local",
+};
+
+const URLS_DEFAULT_LOCAL = {
+  local_ollama:    "http://localhost:11434/v1",
+  local_lmstudio:  "http://localhost:1234/v1",
+  local_llamacpp:  "http://localhost:8080/v1",
+  local_pocketpal: "",
+  local_custom:    "",
+};
 
 // ── Estado ────────────────────────────────────────────────────────────────────
+let tipoAtual     = "nuvem";   // "nuvem" | "local"
 let provedorAtual = "groq";
 let modeloAtual   = "";
 let gerando       = false;
@@ -158,18 +194,72 @@ const statusDot      = document.getElementById("statusDot");
 const statusTxt      = document.getElementById("statusTxt");
 
 // ── Provedores ────────────────────────────────────────────────────────────────
+function listaProvedoresAtual() {
+  return tipoAtual === "local" ? PROVEDORES_LOCAL : PROVEDORES_NUVEM;
+}
+
 function initProvedor() {
-  selProvedor.innerHTML = PROVEDORES.map(o =>
+  // Restaura tipo salvo
+  tipoAtual = lsGet("tipo_provedor") || "nuvem";
+  _sincTipoBtns();
+
+  const lista = listaProvedoresAtual();
+  selProvedor.innerHTML = lista.map(o =>
     `<option value="${o.value}">${o.label}</option>`).join("");
+
   provedorAtual = lsGet("provedor_atual") || "groq";
-  if (!PROVEDORES.find(p => p.value === provedorAtual)) provedorAtual = "groq";
+  const valido = lista.find(p => p.value === provedorAtual);
+  if (!valido) provedorAtual = lista[0].value;
   selProvedor.value = provedorAtual;
   onProvedorMudou();
 }
 
+function _sincTipoBtns() {
+  const btnL = document.getElementById("btnLocal");
+  const btnN = document.getElementById("btnNuvem");
+  if (!btnL || !btnN) return;
+  const isLocal = tipoAtual === "local";
+  btnL.classList.toggle("active", isLocal);
+  btnN.classList.toggle("active", !isLocal);
+  // Cor do select de provedor
+  const pw = document.querySelector(".provedor-wrap");
+  if (pw) pw.dataset.tipo = tipoAtual;
+}
+
+// Botão LOCAL
+document.getElementById("btnLocal")?.addEventListener("click", () => {
+  tipoAtual = "local";
+  lsSet("tipo_provedor", "local");
+  _sincTipoBtns();
+  const lista = PROVEDORES_LOCAL;
+  selProvedor.innerHTML = lista.map(o =>
+    `<option value="${o.value}">${o.label}</option>`).join("");
+  provedorAtual = lsGet("provedor_local_ultimo") || lista[0].value;
+  selProvedor.value = provedorAtual;
+  lsSet("provedor_atual", provedorAtual);
+  onProvedorMudou();
+});
+
+// Botão NUVEM
+document.getElementById("btnNuvem")?.addEventListener("click", () => {
+  tipoAtual = "nuvem";
+  lsSet("tipo_provedor", "nuvem");
+  _sincTipoBtns();
+  const lista = PROVEDORES_NUVEM;
+  selProvedor.innerHTML = lista.map(o =>
+    `<option value="${o.value}">${o.label}</option>`).join("");
+  provedorAtual = lsGet("provedor_nuvem_ultimo") || "groq";
+  if (!lista.find(p => p.value === provedorAtual)) provedorAtual = lista[0].value;
+  selProvedor.value = provedorAtual;
+  lsSet("provedor_atual", provedorAtual);
+  onProvedorMudou();
+});
+
 selProvedor.addEventListener("change", () => {
   provedorAtual = selProvedor.value;
   lsSet("provedor_atual", provedorAtual);
+  if (tipoAtual === "local") lsSet("provedor_local_ultimo", provedorAtual);
+  else                       lsSet("provedor_nuvem_ultimo", provedorAtual);
   onProvedorMudou();
 });
 
@@ -207,17 +297,120 @@ function mostrarCredsBar(prov) {
   }
 }
 
+// Override para provedores locais — sem API key, só URL
+function mostrarCredsBar(prov) {
+  const isLocal = prov.startsWith("local_");
+
+  if (credsBar) credsBar.style.display = "block";
+
+  if (isLocal) {
+    // Local: mostra URL (obrigatório para pocketpal/custom, default para outros)
+    if (credsKey)    credsKey.style.display = "none";
+    if (credsKeyLabel) credsKeyLabel.textContent = "";
+    if (credsUrl)    credsUrl.style.display = "flex";
+    if (credsKeyLabel) credsKeyLabel.textContent = LABELS_KEY_LOCAL[prov] || "URL local";
+    const defaultUrl = URLS_DEFAULT_LOCAL[prov] || "";
+    const savedUrl   = lsGet(`url_${prov}`);
+    if (inputApiUrl)  inputApiUrl.value = savedUrl || defaultUrl;
+    if (inputApiUrl)  inputApiUrl.placeholder = defaultUrl || "http://192.168.x.x:8080/v1";
+    // Mostra campo URL com label local
+    const urlGroup = credsUrl?.parentElement ?? null;
+    if (credsUrl) {
+      const label = credsUrl.querySelector
+        ? credsUrl.previousElementSibling
+        : null;
+    }
+    // Esconde campo de key name (não faz sentido pra local)
+    const keyNameGroup = document.getElementById("credsKeyName");
+    if (keyNameGroup) keyNameGroup.style.display = "none";
+
+    // Bloco de credenciais local: mostra instruções de CORS no lugar do link
+    const linkDiv = document.getElementById("credsApiLink");
+    const linkEl  = document.getElementById("linkApiKey");
+    const linkText = document.getElementById("linkApiKeyText");
+    if (linkDiv && linkEl) {
+      linkEl.href = _corsHelpUrl(prov);
+      if (linkText) linkText.textContent = _corsHelpLabel(prov);
+      linkDiv.style.display = linkEl.href !== "#" ? "block" : "none";
+    }
+    // Botão salvar vira "Conectar"
+    if (btnSalvarLogin) {
+      btnSalvarLogin.innerHTML = btnSalvarLogin.innerHTML.replace(/salvar|conectar/gi, "conectar");
+    }
+    renderChavesSalvas(prov);
+    return;
+  }
+
+  // Nuvem (comportamento original)
+  if (credsKey) credsKey.style.display = "flex";
+  if (credsUrl) credsUrl.style.display = PRECISA_URL.has(prov) ? "flex" : "none";
+  if (credsKeyLabel) credsKeyLabel.textContent = LABELS_KEY[prov] || "API Key";
+  const keyNameGroup = document.getElementById("credsKeyName");
+  if (keyNameGroup) keyNameGroup.style.display = "flex";
+  const saved = lsGet(`key_${prov}`);
+  if (inputApiKey) {
+    inputApiKey.value = "";
+    inputApiKey.placeholder = saved ? "••• salva ✓" : "cole aqui";
+  }
+  if (PRECISA_URL.has(prov) && inputApiUrl) inputApiUrl.value = lsGet(`url_${prov}`) || "";
+  renderChavesSalvas(prov);
+  const linkDiv  = document.getElementById("credsApiLink");
+  const linkEl   = document.getElementById("linkApiKey");
+  const linkText = document.getElementById("linkApiKeyText");
+  const info = LINKS_KEY[prov];
+  if (linkDiv && linkEl && info) {
+    linkEl.href = info.url;
+    if (linkText) linkText.textContent = info.label;
+    linkDiv.style.display = "block";
+  } else if (linkDiv) {
+    linkDiv.style.display = "none";
+  }
+  if (btnSalvarLogin) {
+    btnSalvarLogin.innerHTML = btnSalvarLogin.innerHTML.replace(/conectar/gi, "salvar");
+  }
+}
+
+function _corsHelpUrl(prov) {
+  const map = {
+    local_ollama:   "https://github.com/ollama/ollama/blob/main/docs/faq.md#how-do-i-configure-ollama-server",
+    local_lmstudio: "https://lmstudio.ai/docs/advanced/api-cors",
+    local_llamacpp: "https://github.com/ggerganov/llama.cpp/blob/master/examples/server/README.md",
+  };
+  return map[prov] || "#";
+}
+function _corsHelpLabel(prov) {
+  const map = {
+    local_ollama:    "Como habilitar CORS no Ollama",
+    local_lmstudio:  "Como habilitar CORS no LM Studio",
+    local_llamacpp:  "Docs llama.cpp server",
+    local_pocketpal: "Pocket Pal: ative o modo servidor no app",
+  };
+  return map[prov] || "Documentação";
+}
+
 btnMostrarKey?.addEventListener("click", () => {
   if (inputApiKey) inputApiKey.type = inputApiKey.type === "text" ? "password" : "text";
 });
 
 btnSalvarLogin?.addEventListener("click", () => {
+  const isLocal = provedorAtual.startsWith("local_");
   const key  = inputApiKey?.value.trim();
   const url  = inputApiUrl?.value.trim();
   const nome = document.getElementById("inputKeyName")?.value.trim() || "";
 
-  if (!key) { addAviso("⚠ Cole a API Key antes de salvar."); return; }
+  if (isLocal) {
+    // Local: salva URL, não precisa de key
+    if (!url) { addAviso("⚠ Informe a URL do servidor local."); return; }
+    lsSet(`url_${provedorAtual}`, url);
+    addAviso(`✓ URL salva: ${url}`);
+    if (inputApiUrl) inputApiUrl.placeholder = url;
+    atualizarStatusAPI();
+    carregarModelosLocal(provedorAtual);
+    return;
+  }
 
+  // Nuvem (comportamento original)
+  if (!key) { addAviso("⚠ Cole a API Key antes de salvar."); return; }
   if (nome) {
     salvarChaveNomeada(provedorAtual, nome, key, url);
     addAviso(`✓ Chave "${nome}" salva`);
@@ -230,13 +423,13 @@ btnSalvarLogin?.addEventListener("click", () => {
   if (document.getElementById("inputKeyName")) document.getElementById("inputKeyName").value = "";
   atualizarStatusAPI();
   renderChavesSalvas(provedorAtual);
-  // Recarrega modelos da API agora que temos a chave
   carregarModelosDaAPI(provedorAtual);
 });
 
 // ── Modelos ───────────────────────────────────────────────────────────────────
 function carregarModelos(prov) {
-  const lista = MODELOS[prov] || [];
+  const isLocal = prov.startsWith("local_");
+  const lista = isLocal ? (MODELOS_LOCAL[prov] || []) : (MODELOS[prov] || []);
   const saved = lsGet(`modelo_${prov}`);
 
   if (selModelo) {
@@ -246,8 +439,44 @@ function carregarModelos(prov) {
   modeloAtual = (saved && lista.includes(saved)) ? saved : (lista[0] || "");
   if (selModelo) selModelo.value = modeloAtual;
 
-  // Tenta buscar da API em background
+  // Para provedores locais, busca modelos diretamente sem proxy
+  if (isLocal) { carregarModelosLocal(prov); return; }
   carregarModelosDaAPI(prov);
+}
+
+// Busca lista de modelos direto no endpoint local /v1/models
+async function carregarModelosLocal(prov) {
+  const savedUrl = lsGet(`url_${prov}`);
+  const base = (savedUrl || URLS_DEFAULT_LOCAL[prov] || "").replace(/\\/+$/, "");
+  if (!base) return;
+
+  try {
+    const resp = await fetch(`${base}/models`, {
+      headers: { "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(4000)
+    });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const ids = (data.data || data.models || [])
+      .map(m => m.id || m.name || m)
+      .filter(id => typeof id === "string" && id.length > 0 &&
+        !id.includes("embedding") && !id.includes("whisper"));
+
+    if (ids.length === 0) return;
+    const hardcoded = MODELOS_LOCAL[prov] || [];
+    const merged = [...new Set([...ids, ...hardcoded])];
+    if (selModelo) {
+      const cur = selModelo.value;
+      selModelo.innerHTML = merged.map(m => `<option value="${m}">${m}</option>`).join("");
+      if (cur && merged.includes(cur)) selModelo.value = cur;
+      else { modeloAtual = merged[0]; selModelo.value = modeloAtual; }
+    }
+    addAviso(`✓ ${merged.length} modelo(s) encontrado(s) no ${prov.replace("local_","")}`);
+  } catch (e) {
+    // silencioso — servidor pode não estar rodando
+  }
+}
+
 }
 
 async function carregarModelosDaAPI(prov) {
@@ -309,15 +538,25 @@ selModelo?.addEventListener("input", () => {
 function atualizarStatusAPI() {
   const el = document.getElementById("status-api-nome");
   if (!el) return;
-  const key = lsGet(`key_${provedorAtual}`);
-  el.textContent = provedorAtual.toUpperCase() + (key ? " ✓" : " ⚠");
-  el.style.color = key ? "var(--green)" : "var(--orange)";
+  const isLocal = provedorAtual.startsWith("local_");
+  if (isLocal) {
+    const url = lsGet(`url_${provedorAtual}`) || URLS_DEFAULT_LOCAL[provedorAtual];
+    const nome = provedorAtual.replace("local_", "").toUpperCase();
+    el.textContent = nome + (url ? " 🔗" : " ⚠");
+    el.style.color = url ? "var(--green)" : "var(--amber)";
+  } else {
+    const key = lsGet(`key_${provedorAtual}`);
+    el.textContent = provedorAtual.toUpperCase() + (key ? " ✓" : " ⚠");
+    el.style.color = key ? "var(--green)" : "var(--amber)";
+  }
 }
 
 // ── Medidor de contexto ───────────────────────────────────────────────────────
 const CTX_LIMITS = {
   groq: 32768, gemini: 128000, openrouter: 32768,
   scitely: 32768, llmapi: 32768, puter: 32768, custom: 32768,
+  local_ollama: 32768, local_lmstudio: 32768, local_llamacpp: 32768,
+  local_pocketpal: 8192, local_custom: 32768,
 };
 let _ctxTokensAcum = 0;
 
@@ -460,10 +699,16 @@ async function enviarMensagem(texto) {
   if (!modeloAtual) { addAviso("⚠ Digite ou selecione um modelo."); return; }
 
   const apiKey = lsGet(`key_${provedorAtual}`);
-  const apiUrl = lsGet(`url_${provedorAtual}`);
+  const apiUrl = provedorAtual.startsWith("local_")
+    ? (lsGet(`url_${provedorAtual}`) || URLS_DEFAULT_LOCAL[provedorAtual] || "")
+    : lsGet(`url_${provedorAtual}`);
 
-  if (!apiKey && provedorAtual !== "custom") {
+  if (!apiKey && !provedorAtual.startsWith("local_") && provedorAtual !== "custom") {
     addAviso(`⚠ Cole a API Key do ${provedorAtual} acima e clique em Salvar.`);
+    return;
+  }
+  if (provedorAtual.startsWith("local_") && !apiUrl) {
+    addAviso(`⚠ Informe a URL do servidor local (ex: http://localhost:11434/v1).`);
     return;
   }
 

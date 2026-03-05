@@ -40,7 +40,38 @@ const API_CONFIGS = {
     base: null,
     url:  null,
     headers: (key) => ({ "Authorization": "Bearer " + (key || "sk-no-key") })
-  }
+  },
+  // ── Provedores locais — chamada direta (sem proxy) ──────────────────────
+  local_ollama: {
+    base: "http://localhost:11434/v1",
+    url:  "http://localhost:11434/v1/chat/completions",
+    headers: (_key) => ({}),       // Ollama não exige key
+    direct: true
+  },
+  local_lmstudio: {
+    base: "http://localhost:1234/v1",
+    url:  "http://localhost:1234/v1/chat/completions",
+    headers: (_key) => ({ "Authorization": "Bearer lm-studio" }),
+    direct: true
+  },
+  local_llamacpp: {
+    base: "http://localhost:8080/v1",
+    url:  "http://localhost:8080/v1/chat/completions",
+    headers: (_key) => ({}),
+    direct: true
+  },
+  local_pocketpal: {
+    base: null,   // URL configurável pelo usuário
+    url:  null,
+    headers: (_key) => ({}),
+    direct: true
+  },
+  local_custom: {
+    base: null,
+    url:  null,
+    headers: (key) => key ? { "Authorization": "Bearer " + key } : {},
+    direct: true
+  },
 };
 
 window.AgenteDev_API_CONFIGS = API_CONFIGS;
@@ -365,17 +396,24 @@ async function runAgent({
 
   const API_CONFIGS = window.AgenteDev_API_CONFIGS;
   const cfg = API_CONFIGS[fonte] || API_CONFIGS.groq;
+  const isLocal = fonte.startsWith("local_");
 
   // URL final de chat completions
   let chatUrl;
-  if (fonte === "custom") {
-    chatUrl = (apiUrlCustom || "").replace(/\/+$/, "") + "/chat/completions";
+  if (isLocal || fonte === "custom") {
+    // Para local, apiUrlCustom é a base URL salva (ex: http://localhost:11434/v1)
+    const base = (apiUrlCustom || cfg.url || "").replace(/\/chat\/completions.*/, "").replace(/\/+$/, "");
+    chatUrl = base + "/chat/completions";
   } else {
     chatUrl = cfg.url;
   }
 
-  if (!apiKey && fonte !== "custom") {
+  if (!apiKey && !isLocal && fonte !== "custom") {
     onErro(`🔑 Nenhuma API Key para '${fonte}'. Cole a chave e clique em Salvar.`);
+    onFim(); return;
+  }
+  if (isLocal && !chatUrl.includes("//")) {
+    onErro("⚠ Configure a URL do servidor local no painel de credenciais.");
     onFim(); return;
   }
 
@@ -385,11 +423,19 @@ async function runAgent({
     { role: "user", content: pergunta }
   ];
 
-  // Monta headers extras (sem Authorization — o proxy adiciona)
-  const extraHeaders = {};
-  for (const [k, v] of Object.entries(cfg.headers(apiKey || ""))) {
-    if (k !== "Authorization") extraHeaders[k] = v;
-  }
+  const payload = {
+    model: modelo,
+    messages: msgs,
+    tools: TOOLS,
+    tool_choice: "auto",
+    stream: true,
+    max_tokens: 4096,
+    temperature: 0
+  };
+
+  // Para provedores locais: alguns não suportam tools/function calling
+  // Tenta com tools; se der erro 400, tenta sem
+  let localToolsSupported = true;
 
   onStatus("pensando");
 
@@ -398,28 +444,69 @@ async function runAgent({
 
     let resp;
     try {
-      resp = await fetch("https://falling-shadow-94c.legacycelularesecomputadores.workers.dev", {
-        method: "POST",
-        signal,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          targetUrl: chatUrl,
-          apiKey,
-          extraHeaders,
-          payload: {
-            model: modelo,
-            messages: msgs,
-            tools: TOOLS,
-            tool_choice: "auto",
-            stream: true,
-            max_tokens: 4096,
-            temperature: 0
+      if (isLocal) {
+        // ── Chamada DIRETA para servidor local ─────────────────────────────
+        const localHeaders = { "Content-Type": "application/json" };
+        const hdrs = cfg.headers(apiKey || "");
+        for (const [k, v] of Object.entries(hdrs)) localHeaders[k] = v;
+
+        const localPayload = { ...payload };
+        if (!localToolsSupported) {
+          delete localPayload.tools;
+          delete localPayload.tool_choice;
+        }
+
+        resp = await fetch(chatUrl, {
+          method: "POST",
+          signal,
+          headers: localHeaders,
+          body: JSON.stringify(localPayload)
+        });
+
+        // Se não suporta tools, tenta sem
+        if (!resp.ok && localToolsSupported) {
+          const errText = await resp.text().catch(() => "");
+          if (errText.includes("tools") || errText.includes("function") || resp.status === 400) {
+            localToolsSupported = false;
+            onAviso("⚠ Modelo local sem suporte a function-calling. Modo texto simples.");
+            const localPayload2 = { ...payload };
+            delete localPayload2.tools;
+            delete localPayload2.tool_choice;
+            resp = await fetch(chatUrl, {
+              method: "POST", signal,
+              headers: localHeaders,
+              body: JSON.stringify(localPayload2)
+            });
           }
-        })
-      });
+        }
+      } else {
+        // ── Chamada via proxy (nuvem) ───────────────────────────────────────
+        const extraHeaders = {};
+        for (const [k, v] of Object.entries(cfg.headers(apiKey || ""))) {
+          if (k !== "Authorization") extraHeaders[k] = v;
+        }
+        resp = await fetch("https://falling-shadow-94c.legacycelularesecomputadores.workers.dev", {
+          method: "POST",
+          signal,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            targetUrl: chatUrl,
+            apiKey,
+            extraHeaders,
+            payload
+          })
+        });
+      }
     } catch (e) {
       if (e.name === "AbortError") break;
-      onErro(`Falha de conexão: ${e.message}`);
+      if (isLocal) {
+        const pName = fonte.replace("local_", "");
+        onErro(`🔌 Não foi possível conectar ao servidor local (${pName}).\n\n` +
+          `Verifique:\n• O servidor está rodando?\n• A URL está correta: ${chatUrl}\n` +
+          `• CORS está habilitado?\n\n${e.message}`);
+      } else {
+        onErro(`Falha de conexão: ${e.message}`);
+      }
       onFim(); return;
     }
 
