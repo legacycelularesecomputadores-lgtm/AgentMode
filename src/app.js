@@ -586,6 +586,13 @@ function resetCtxMeter() {
 function setStatus(fase, texto) {
   if (statusDot) statusDot.className = "status-dot " + (fase || "");
   if (statusTxt) statusTxt.textContent = texto || fase || "pronto";
+  // Espelha no pill mobile
+  const dotM = document.getElementById("statusDotMobile");
+  const txtM = document.getElementById("statusTxtMobile");
+  const pilM = document.getElementById("statusPillMobile");
+  if (dotM) dotM.className = "status-dot " + (fase || "");
+  if (txtM) txtM.textContent = texto || fase || "pronto";
+  if (pilM) pilM.style.display = "flex";
 }
 
 // ── UI helpers ────────────────────────────────────────────────────────────────
@@ -1135,6 +1142,8 @@ function renderVirtualFS() {
   if (!sidebarTree) return;
   sidebarTree.innerHTML = "";
   const arqs = Object.keys(_virtualFS);
+  // Atualiza badge do botão mobile files
+  document.getElementById("btnMobileFiles")?.classList.toggle("has-files", arqs.length > 0);
 
   const hdr = document.createElement("div");
   hdr.style.cssText = "padding:8px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;";
@@ -1468,134 +1477,180 @@ document.getElementById("btnDeletarKey")?.addEventListener("click", () => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
-// MOBILE CREDS SHEET
-// Bottom sheet que espelha o creds-bar desktop num painel deslizante
+// MOBILE BOTTOM SHEETS — 3 sheets: ⚙ Settings | 🔑 Creds | 📁 Files
 // ══════════════════════════════════════════════════════════════════════════════
-function _initMobileCredsSheet() {
-  const overlay  = document.getElementById("mobileCredsOverlay");
-  const sheet    = document.getElementById("mobileCredsSheet");
-  const body     = document.getElementById("mobileCredsBody");
-  const btnOpen  = document.getElementById("btnMobileKey");
-  const btnClose = document.getElementById("btnMobileCredsClose");
-  const titleEl  = document.getElementById("mobileCredsTitle");
-  const desktopBar = document.getElementById("credsBar");
-  if (!overlay || !body || !btnOpen) return;
+function _isMobile() { return window.innerWidth <= 768; }
 
-  function _abrirSheet() {
-    // Clona o conteúdo do creds-bar desktop para o sheet
-    if (desktopBar) {
-      body.innerHTML = desktopBar.querySelector(".creds-inner")?.innerHTML || "";
-      // Re-bind eventos nos clones
-      _bindSheetEvents();
-    }
-    // Atualiza título com provedor atual
-    const pName = provedorAtual.replace("local_","").toUpperCase();
-    if (titleEl) titleEl.textContent = `Configurar — ${pName}`;
-    overlay.classList.add("open");
-    document.body.style.overflow = "hidden";
+function _abrirSheet(id)  { document.getElementById(id)?.classList.add("open"); }
+function _fecharSheet(id) { document.getElementById(id)?.classList.remove("open"); }
+
+// ── Sheet CONFIGURAÇÕES ────────────────────────────────────────────────────
+function _initSheetSettings() {
+  const selProv  = document.getElementById("selProvedorSheet");
+  const selMod   = document.getElementById("selModeloSheet");
+  const btnLocalS = document.getElementById("btnLocalSheet");
+  const btnNuvemS = document.getElementById("btnNuvemSheet");
+
+  function _sincTipoSheet() {
+    btnLocalS?.classList.toggle("active", tipoAtual === "local");
+    btnNuvemS?.classList.toggle("active", tipoAtual === "nuvem");
   }
 
-  function _fecharSheet() {
-    overlay.classList.remove("open");
-    document.body.style.overflow = "";
+  function _preencherSettings() {
+    const lista = tipoAtual === "local" ? PROVEDORES_LOCAL : PROVEDORES_NUVEM;
+    if (selProv) { selProv.innerHTML = lista.map(o=>`<option value="${o.value}">${o.label}</option>`).join(""); selProv.value = provedorAtual; }
+    const modelos = tipoAtual === "local" ? (MODELOS_LOCAL[provedorAtual]||[]) : (MODELOS[provedorAtual]||[]);
+    if (selMod)  { selMod.innerHTML = modelos.map(m=>`<option value="${m}">${m}</option>`).join(""); selMod.value = modeloAtual||modelos[0]||""; }
+    _sincTipoSheet();
+    const modoDesk = document.querySelector("#segModo .seg-btn.active")?.dataset.modo || "agente";
+    document.querySelectorAll("#segModoSheet .seg-btn").forEach(b=>b.classList.toggle("active",b.dataset.modo===modoDesk));
+    const pnEl = document.getElementById("projetoNomeSheet");
+    if (pnEl) pnEl.textContent = _projetoNome;
   }
 
-  function _bindSheetEvents() {
-    // Botão salvar/conectar dentro do clone
-    body.querySelector(".btn-save-login")?.addEventListener("click", () => {
-      const isLocal = provedorAtual.startsWith("local_");
-      const keyEl = body.querySelector("#inputApiKey");
-      const urlEl = body.querySelector("#inputApiUrl");
-      const nameEl = body.querySelector("#inputKeyName");
-      const key  = keyEl?.value.trim() || "";
-      const url  = urlEl?.value.trim() || "";
-      const nome = nameEl?.value.trim() || "";
+  document.getElementById("btnMobileSettings")?.addEventListener("click", () => { _preencherSettings(); _abrirSheet("sheetSettingsOverlay"); });
+  document.getElementById("btnSheetSettingsClose")?.addEventListener("click", () => _fecharSheet("sheetSettingsOverlay"));
+  document.getElementById("sheetSettingsOverlay")?.addEventListener("click", e => { if (e.target.id==="sheetSettingsOverlay") _fecharSheet("sheetSettingsOverlay"); });
 
-      if (isLocal) {
-        if (!url) { addAviso("⚠ Informe a URL do servidor local."); return; }
-        lsSet(`url_${provedorAtual}`, url);
-        addAviso(`✓ URL salva: ${url}`);
-        _fecharSheet();
-        atualizarStatusAPI(); _atualizarBtnMobileKey();
-        carregarModelosLocal(provedorAtual);
-        return;
-      }
-      if (!key) { addAviso("⚠ Cole a API Key antes de salvar."); return; }
-      if (nome) {
-        salvarChaveNomeada(provedorAtual, nome, key, url);
-        addAviso(`✓ Chave "${nome}" salva`);
-      } else {
-        lsSet(`key_${provedorAtual}`, key);
-        if (url) lsSet(`url_${provedorAtual}`, url);
-        addAviso("✓ Chave salva");
-      }
-      _fecharSheet();
-      atualizarStatusAPI(); _atualizarBtnMobileKey();
-      renderChavesSalvas(provedorAtual);
-      carregarModelosDaAPI(provedorAtual);
+  btnLocalS?.addEventListener("click", () => {
+    tipoAtual="local"; lsSet("tipo_provedor","local"); _sincTipoBtns();
+    const lista=PROVEDORES_LOCAL;
+    selProv.innerHTML=lista.map(o=>`<option value="${o.value}">${o.label}</option>`).join("");
+    provedorAtual=lsGet("provedor_local_ultimo")||lista[0].value;
+    selProv.value=provedorAtual; lsSet("provedor_atual",provedorAtual);
+    onProvedorMudou(); _preencherSettings();
+  });
+  btnNuvemS?.addEventListener("click", () => {
+    tipoAtual="nuvem"; lsSet("tipo_provedor","nuvem"); _sincTipoBtns();
+    const lista=PROVEDORES_NUVEM;
+    selProv.innerHTML=lista.map(o=>`<option value="${o.value}">${o.label}</option>`).join("");
+    provedorAtual=lsGet("provedor_nuvem_ultimo")||"groq";
+    if (!lista.find(p=>p.value===provedorAtual)) provedorAtual=lista[0].value;
+    selProv.value=provedorAtual; lsSet("provedor_atual",provedorAtual);
+    onProvedorMudou(); _preencherSettings();
+  });
+  selProv?.addEventListener("change", () => {
+    provedorAtual=selProv.value; lsSet("provedor_atual",provedorAtual);
+    if (tipoAtual==="local") lsSet("provedor_local_ultimo",provedorAtual); else lsSet("provedor_nuvem_ultimo",provedorAtual);
+    onProvedorMudou(); _preencherSettings();
+  });
+  selMod?.addEventListener("change", () => {
+    modeloAtual=selMod.value.trim();
+    if (modeloAtual) lsSet(`modelo_${provedorAtual}`,modeloAtual);
+    const sd=document.getElementById("selModelo"); if (sd) sd.value=modeloAtual;
+  });
+  document.querySelectorAll("#segModoSheet .seg-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const modo=btn.dataset.modo; setModoAgente(modo);
+      document.querySelectorAll("#segModoSheet .seg-btn").forEach(b=>b.classList.toggle("active",b.dataset.modo===modo));
+      document.querySelectorAll("#segModo .seg-btn").forEach(b=>b.classList.toggle("active",b.dataset.modo===modo));
     });
-
-    // Botão olho (mostrar/ocultar key)
-    body.querySelector(".btn-eye")?.addEventListener("click", () => {
-      const inp = body.querySelector("#inputApiKey");
-      if (inp) inp.type = inp.type === "text" ? "password" : "text";
-    });
-
-    // Select de chaves salvas
-    body.querySelector("#selSavedKey")?.addEventListener("change", (e) => {
-      const nome = e.target.value;
-      const item = getChavesNomeadas(provedorAtual).find(k => k.nome === nome);
-      if (!item) return;
-      const keyEl = body.querySelector("#inputApiKey");
-      const urlEl = body.querySelector("#inputApiUrl");
-      if (keyEl) keyEl.value = item.key;
-      if (item.url && urlEl) urlEl.value = item.url;
-      lsSet(`key_${provedorAtual}`, item.key);
-      if (item.url) lsSet(`url_${provedorAtual}`, item.url);
-      addAviso(`✓ Chave "${nome}" carregada`);
-      _fecharSheet();
-      atualizarStatusAPI(); _atualizarBtnMobileKey();
-      carregarModelosDaAPI(provedorAtual);
-    });
-
-    // Botão deletar chave
-    body.querySelector("#btnDeletarKey")?.addEventListener("click", () => {
-      const sel = body.querySelector("#selSavedKey");
-      if (!sel?.value) return;
-      const lista = getChavesNomeadas(provedorAtual).filter(k => k.nome !== sel.value);
-      _store.setItem(`agente_dev_named_keys_${provedorAtual}`, JSON.stringify(lista));
-      addAviso("✓ Chave removida");
-      _fecharSheet(); setTimeout(_abrirSheet, 150);
-    });
-  }
-
-  function _atualizarBtnMobileKey() {
-    if (!btnOpen) return;
-    const isLocal = provedorAtual.startsWith("local_");
-    const temCred = isLocal
-      ? !!(lsGet(`url_${provedorAtual}`) || URLS_DEFAULT_LOCAL[provedorAtual])
-      : !!lsGet(`key_${provedorAtual}`);
-    btnOpen.classList.toggle("has-key", temCred);
-    btnOpen.classList.toggle("no-key",  !temCred);
-  }
-
-  btnOpen?.addEventListener("click", _abrirSheet);
-  btnClose?.addEventListener("click", _fecharSheet);
-  overlay?.addEventListener("click", e => { if (e.target === overlay) _fecharSheet(); });
-
-  // Atualiza indicador sempre que provedor muda
-  const _origOnProvMudou = window._onProvedorMudouHook;
-  window._onProvedorMudouHook = () => {
-    _atualizarBtnMobileKey();
-    _origOnProvMudou?.();
-  };
-
-  _atualizarBtnMobileKey();
+  });
+  document.getElementById("btnProjetoSheet")?.addEventListener("click", () => { document.getElementById("btnProjeto")?.click(); _fecharSheet("sheetSettingsOverlay"); });
 }
 
-// Hook chamado pelo onProvedorMudou para atualizar o botão mobile
+// ── Sheet CREDENCIAIS ──────────────────────────────────────────────────────
+function _initSheetCreds() {
+  const body  = document.getElementById("sheetCredsBody");
+  const title = document.getElementById("sheetCredsTitle");
+  const btnKey = document.getElementById("btnMobileKey");
+
+  function _atualizarBotaoKey() {
+    if (!btnKey) return;
+    const isLocal = provedorAtual.startsWith("local_");
+    const tem = isLocal ? !!(lsGet(`url_${provedorAtual}`)||URLS_DEFAULT_LOCAL[provedorAtual]) : !!lsGet(`key_${provedorAtual}`);
+    btnKey.classList.toggle("has-key", tem);
+    btnKey.classList.toggle("no-key", !tem);
+  }
+
+  function _renderCreds() {
+    const isLocal = provedorAtual.startsWith("local_");
+    const pName = provedorAtual.replace("local_","").toUpperCase();
+    if (title) title.textContent = isLocal ? `🔗 Local — ${pName}` : `🔑 Credenciais — ${pName}`;
+    const salvas = getChavesNomeadas(provedorAtual);
+    let html = "";
+    if (!isLocal && salvas.length>0) {
+      html += `<div class="creds-field-group" style="flex-direction:column;gap:5px;width:100%"><label class="creds-label">CHAVES SALVAS</label><div class="select-wrap"><select id="sheetSelSavedKey"><option value="">— selecionar —</option>${salvas.map(k=>`<option value="${k.nome}">${k.nome}</option>`).join("")}</select><span class="select-arrow">▾</span></div></div>`;
+    }
+    if (isLocal) {
+      const savedUrl=lsGet(`url_${provedorAtual}`)||URLS_DEFAULT_LOCAL[provedorAtual]||"";
+      const labelUrl=LABELS_KEY_LOCAL[provedorAtual]||"URL do servidor";
+      const helpUrl=_corsHelpUrl(provedorAtual); const helpLbl=_corsHelpLabel(provedorAtual);
+      html += `<div class="creds-field-group" style="flex-direction:column;gap:5px;width:100%"><label class="creds-label">${labelUrl.toUpperCase()}</label><input type="url" id="sheetInputUrl" class="creds-input creds-input-url" value="${savedUrl}" placeholder="http://localhost:11434/v1" autocomplete="off" style="width:100%;font-size:15px;padding:11px 12px;box-sizing:border-box"/></div>`;
+      if (helpUrl&&helpUrl!=="#") html+=`<a href="${helpUrl}" target="_blank" rel="noopener" style="font-size:11px;color:var(--blue);text-decoration:none;display:flex;align-items:center;gap:4px;margin-top:-4px">${helpLbl} ↗</a>`;
+    } else {
+      const label=LABELS_KEY[provedorAtual]||"API KEY"; const savedKey=lsGet(`key_${provedorAtual}`); const link=LINKS_KEY[provedorAtual];
+      html += `<div class="creds-field-group" style="flex-direction:column;gap:5px;width:100%"><label class="creds-label">${label.toUpperCase()}</label><div class="key-input-wrap"><input type="password" id="sheetInputKey" class="creds-input" placeholder="${savedKey?"••• salva ✓":"cole sua API key"}" autocomplete="off" style="font-size:15px;padding:11px 12px"/><button class="btn-eye" id="sheetBtnEye"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>`;
+      html += `<div class="creds-field-group" style="flex-direction:column;gap:5px;width:100%"><label class="creds-label">NOME (OPCIONAL)</label><input type="text" id="sheetInputName" class="creds-input creds-input-name" placeholder="ex: trabalho" autocomplete="off" style="font-size:15px;padding:11px 12px;width:100%;box-sizing:border-box"/></div>`;
+      if (PRECISA_URL.has(provedorAtual)) html+=`<div class="creds-field-group" style="flex-direction:column;gap:5px;width:100%"><label class="creds-label">URL BASE</label><input type="text" id="sheetInputUrl2" class="creds-input creds-input-url" value="${lsGet(`url_${provedorAtual}`)||""}" placeholder="https://..." autocomplete="off" style="font-size:15px;padding:11px 12px;width:100%;box-sizing:border-box"/></div>`;
+      if (link) html+=`<a href="${link.url}" target="_blank" rel="noopener" style="font-size:11px;color:var(--blue);text-decoration:none;display:flex;align-items:center;gap:4px;margin-top:-4px">${link.label} ↗</a>`;
+    }
+    html += `<button class="btn-save-login" id="sheetBtnSalvar" style="width:100%;justify-content:center;margin-top:6px;padding:12px;font-size:13px">${isLocal?"Conectar":"Salvar"}</button>`;
+    if (body) body.innerHTML = html;
+
+    document.getElementById("sheetBtnEye")?.addEventListener("click", () => { const i=document.getElementById("sheetInputKey"); if(i) i.type=i.type==="text"?"password":"text"; });
+    document.getElementById("sheetSelSavedKey")?.addEventListener("change", e => {
+      const item=getChavesNomeadas(provedorAtual).find(k=>k.nome===e.target.value); if(!item) return;
+      lsSet(`key_${provedorAtual}`,item.key); if(item.url) lsSet(`url_${provedorAtual}`,item.url);
+      addAviso(`✓ Chave "${item.nome}" carregada`); _fecharSheet("sheetCredsOverlay");
+      atualizarStatusAPI(); _atualizarBotaoKey(); carregarModelosDaAPI(provedorAtual);
+    });
+    document.getElementById("sheetBtnSalvar")?.addEventListener("click", () => {
+      const isL=provedorAtual.startsWith("local_");
+      if (isL) {
+        const url=document.getElementById("sheetInputUrl")?.value.trim();
+        if (!url) { addAviso("⚠ Informe a URL do servidor local."); return; }
+        lsSet(`url_${provedorAtual}`,url); addAviso(`✓ URL salva: ${url}`);
+        _fecharSheet("sheetCredsOverlay"); atualizarStatusAPI(); _atualizarBotaoKey(); carregarModelosLocal(provedorAtual); return;
+      }
+      const key=document.getElementById("sheetInputKey")?.value.trim();
+      const nome=document.getElementById("sheetInputName")?.value.trim()||"";
+      const url2=document.getElementById("sheetInputUrl2")?.value.trim()||"";
+      if (!key) { addAviso("⚠ Cole a API Key antes de salvar."); return; }
+      if (nome) { salvarChaveNomeada(provedorAtual,nome,key,url2); addAviso(`✓ Chave "${nome}" salva`); }
+      else { lsSet(`key_${provedorAtual}`,key); if(url2) lsSet(`url_${provedorAtual}`,url2); addAviso("✓ Chave salva"); }
+      _fecharSheet("sheetCredsOverlay"); atualizarStatusAPI(); _atualizarBotaoKey(); renderChavesSalvas(provedorAtual); carregarModelosDaAPI(provedorAtual);
+    });
+  }
+
+  btnKey?.addEventListener("click", () => { _renderCreds(); _abrirSheet("sheetCredsOverlay"); });
+  document.getElementById("btnSheetCredsClose")?.addEventListener("click", () => _fecharSheet("sheetCredsOverlay"));
+  document.getElementById("sheetCredsOverlay")?.addEventListener("click", e => { if(e.target.id==="sheetCredsOverlay") _fecharSheet("sheetCredsOverlay"); });
+  window._atualizarBotaoKeyMobile = _atualizarBotaoKey;
+  _atualizarBotaoKey();
+}
+
+// ── Sheet ARQUIVOS ─────────────────────────────────────────────────────────
+function _initSheetFiles() {
+  function _sincFiles() {
+    const dt=document.getElementById("sidebarTree"); const st=document.getElementById("sheetFilesTree");
+    if (!dt||!st) return;
+    st.innerHTML = dt.innerHTML;
+    st.querySelectorAll("[data-cam]").forEach(el => {
+      el.querySelectorAll(".tree-item-nome, .tree-item-entrar").forEach(btn => {
+        btn.addEventListener("click", () => { const c=el.dataset.cam,n=el.dataset.nome; if(c&&n){abrirNoEditor(c,n);_fecharSheet("sheetFilesOverlay");} });
+      });
+      el.querySelectorAll(".tree-item-ref").forEach(btn => {
+        btn.addEventListener("click", () => { const c=el.dataset.cam,n=el.dataset.nome; if(c&&n) adicionarReferencia(c,n); _fecharSheet("sheetFilesOverlay"); });
+      });
+      el.querySelectorAll(".tree-item-dl").forEach(btn => {
+        btn.addEventListener("click", () => { const c=el.dataset.cam; if(_virtualFS[c]){const b=new Blob([_virtualFS[c]],{type:"text/plain"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=c.split("/").pop();a.click();} });
+      });
+    });
+    const count=Object.keys(_virtualFS).length;
+    document.getElementById("btnMobileFiles")?.classList.toggle("has-files",count>0);
+  }
+
+  document.getElementById("btnMobileFiles")?.addEventListener("click", () => { _sincFiles(); _abrirSheet("sheetFilesOverlay"); });
+  document.getElementById("btnSheetFilesClose")?.addEventListener("click", () => _fecharSheet("sheetFilesOverlay"));
+  document.getElementById("btnSheetFilesRefresh")?.addEventListener("click", () => { renderVirtualFS(); _sincFiles(); });
+  document.getElementById("sheetFilesOverlay")?.addEventListener("click", e => { if(e.target.id==="sheetFilesOverlay") _fecharSheet("sheetFilesOverlay"); });
+  window._sincFilesSheetMobile = _sincFiles;
+}
+
+// Hook disparado por onProvedorMudou e por renderVirtualFS
 function _dispatchProvedorHook() {
-  window._onProvedorMudouHook?.();
+  window._atualizarBotaoKeyMobile?.();
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1611,10 +1666,17 @@ document.addEventListener("DOMContentLoaded", () => {
     pill.parentElement.appendChild(badge);
   }
 
-  _registrarBotoesTipo();   // ← local / nuvem toggle
+  _registrarBotoesTipo();
   initProvedor();
   setStatus("pronto", "pronto");
-  _initMobileCredsSheet();  // ← bottom sheet de credenciais
+
+  // Mobile sheets
+  if (_isMobile() || true) { // sempre inicializa (pode rotacionar)
+    _initSheetSettings();
+    _initSheetCreds();
+    _initSheetFiles();
+  }
+
   setModoAgente(lsGet("modo_agente") || "agente");
 
   const pnEl = document.getElementById("projetoNome");

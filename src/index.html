@@ -47,8 +47,137 @@
     </div>
   </aside>
 
-  <!-- ── BACKDROP MOBILE (overlay quando sidebar aberta) ─────────────── -->
+  <!-- ── BACKDROP MOBILE ───────────────────────────────────────────────── -->
   <div class="conv-backdrop" id="convBackdrop"></div>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       BOTTOM SHEET: CONFIGURAÇÕES (local/nuvem, provedor, modelo, modo, projeto)
+  ════════════════════════════════════════════════════════════════════════ -->
+  <div class="mobile-sheet-overlay" id="sheetSettingsOverlay">
+    <div class="mobile-sheet" id="sheetSettings">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <span class="sheet-title">⚙ Configurações</span>
+        <button class="sheet-close" id="btnSheetSettingsClose">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="sheet-body">
+        <div class="sheet-settings-group">
+
+          <!-- Tipo: local / nuvem -->
+          <div class="sheet-field">
+            <span class="sheet-field-label">Tipo de IA</span>
+            <div class="seg-ctrl">
+              <button class="seg-btn" id="btnLocalSheet" data-tipo="local">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Local
+              </button>
+              <button class="seg-btn active" id="btnNuvemSheet" data-tipo="nuvem">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>Nuvem
+              </button>
+            </div>
+          </div>
+
+          <!-- Provedor -->
+          <div class="sheet-field">
+            <span class="sheet-field-label">Provedor</span>
+            <div class="select-wrap">
+              <select id="selProvedorSheet"></select>
+              <span class="select-arrow">▾</span>
+            </div>
+          </div>
+
+          <!-- Modelo -->
+          <div class="sheet-field">
+            <span class="sheet-field-label">Modelo</span>
+            <div class="select-wrap">
+              <select id="selModeloSheet"></select>
+              <span class="select-arrow">▾</span>
+            </div>
+          </div>
+
+          <div class="sheet-sep"></div>
+
+          <!-- Modo agente -->
+          <div class="sheet-field">
+            <span class="sheet-field-label">Modo</span>
+            <div class="seg-ctrl" id="segModoSheet">
+              <button class="seg-btn" id="btnModoChatSheet" data-modo="chat">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Chat
+              </button>
+              <button class="seg-btn active" id="btnModoAgenteSheet" data-modo="agente">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>Agente
+              </button>
+              <button class="seg-btn" id="btnModoPlanejadorSheet" data-modo="planejador">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Planejar
+              </button>
+            </div>
+          </div>
+
+          <div class="sheet-sep"></div>
+
+          <!-- Projeto -->
+          <div class="sheet-field">
+            <span class="sheet-field-label">Projeto</span>
+            <button class="btn-projeto" id="btnProjetoSheet" style="width:100%;max-width:100%;justify-content:flex-start">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              <span id="projetoNomeSheet">Meu Projeto</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       BOTTOM SHEET: CREDENCIAIS (API key / URL local)
+  ════════════════════════════════════════════════════════════════════════ -->
+  <div class="mobile-sheet-overlay" id="sheetCredsOverlay">
+    <div class="mobile-sheet" id="sheetCreds">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <span class="sheet-title" id="sheetCredsTitle">🔑 Credenciais</span>
+        <button class="sheet-close" id="btnSheetCredsClose">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="sheet-body">
+        <div class="sheet-creds-group" id="sheetCredsBody">
+          <!-- Preenchido dinamicamente pelo JS igual o creds-bar -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       BOTTOM SHEET: ARQUIVOS VIRTUAIS
+  ════════════════════════════════════════════════════════════════════════ -->
+  <div class="mobile-sheet-overlay" id="sheetFilesOverlay">
+    <div class="mobile-sheet" id="sheetFiles">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <span class="sheet-title">📁 Arquivos do Projeto</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          <button class="btn-icon" id="btnSheetFilesRefresh" title="Atualizar">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          </button>
+          <button class="sheet-close" id="btnSheetFilesClose">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="sheet-files-body">
+        <!-- Espelha o sidebar-tree desktop -->
+        <div class="sidebar-tree" id="sheetFilesTree">
+          <div class="sidebar-empty" style="text-align:center;padding:30px 10px;">
+            <div style="font-size:28px;margin-bottom:8px;">📁</div>
+            <div style="font-size:12px;color:var(--text2);">Nenhum arquivo ainda.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- ── COLUNA DIREITA ───────────────────────────────────────────── -->
   <div class="app-main" id="appMain">
@@ -62,6 +191,23 @@
         <span class="topbar-mobile-title">
           <span class="topbar-mobile-dot"></span>Agente Dev
         </span>
+        <!-- Botão arquivos — só mobile -->
+        <button class="btn-icon btn-mobile-files" id="btnMobileFiles" title="Arquivos">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h6l2 3h10v13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3z"/><line x1="3" y1="9" x2="21" y2="9"/></svg>
+        </button>
+        <!-- Botão configurações (modo/modelo/provedor/projeto) — só mobile -->
+        <button class="btn-icon btn-mobile-settings" id="btnMobileSettings" title="Configurações">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M2 12h2M20 12h2M19.07 19.07l-1.41-1.41M4.93 19.07l1.41-1.41"/></svg>
+        </button>
+        <!-- Botão chave API — só mobile -->
+        <button class="btn-icon btn-mobile-key" id="btnMobileKey" title="Chave API">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+        </button>
+        <!-- Status pill direto na topbar mobile -->
+        <div class="status-pill" id="statusPillMobile" style="display:none">
+          <span class="status-dot" id="statusDotMobile"></span>
+          <span id="statusTxtMobile">pronto</span>
+        </div>
       </div>
       <div class="topbar-controls">
         <div class="ctrl-group">

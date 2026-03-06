@@ -438,6 +438,7 @@ async function runAgent({
   let localToolsSupported = true;
 
   onStatus("pensando");
+  let lastUsage = null;   // ← fora do loop para ser acessível no onFim
 
   for (let step = 0; step < MAX_STEPS; step++) {
     if (signal?.aborted) break;
@@ -521,7 +522,6 @@ async function runAgent({
     let finishReason = null;
     let inThink = false;
     let thinkBuf = "";
-    let lastUsage = null;
 
     for await (const chunk of lerSSE(resp.body)) {
       if (signal?.aborted) break;

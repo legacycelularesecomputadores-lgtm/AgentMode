@@ -2163,39 +2163,65 @@ body.resizing .resize-handle::after {
 .ctx-bar-inner.warn  { background: var(--amber); }
 .ctx-bar-inner.danger{ background: var(--red);   }
 
-/* ── Elementos mobile-only (ocultos no desktop) ──────────────────────────── */
-.topbar-mobile-title { display: none; }
-.conv-backdrop       { display: none; }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   ELEMENTOS MOBILE-ONLY — invisíveis no desktop
+══════════════════════════════════════════════════════════════════════════ */
+.topbar-mobile-title  { display: none; }
+.conv-backdrop        { display: none; }
+.btn-mobile-key       { display: none; }
+.btn-mobile-settings  { display: none; }
+.btn-mobile-files     { display: none; }
+.mobile-bottom-sheet  { display: none; }
+.mobile-footer-bar    { display: none; }
 
 /* ══════════════════════════════════════════════════════════════════════════
    MOBILE  ≤ 768px
-   Abordagem: topbar usa CSS Grid (2 rows explícitas).
-   html/body recebem height: 100dvh para respeitar barra do browser mobile.
+   Filosofia: topbar 1 linha com ícones → tudo o mais em bottom sheets.
+   Nada escondido, tudo acessível com 1 toque.
+   Layout: position:fixed no root, scroll interno livre.
 ══════════════════════════════════════════════════════════════════════════ */
 @media (max-width: 768px) {
 
-  /* ── Corrige viewport no Chrome/Safari mobile (barra de endereço) ─────── */
-  html, body {
-    height: 100dvh !important;
-    height: -webkit-fill-available !important;
+  /* ── 0. VIEWPORT FIX — evita bug da barra do Chrome/Safari mobile ─────── */
+  html { height: -webkit-fill-available; }
+  body {
+    height: 100dvh;
+    height: -webkit-fill-available;
+    overflow: hidden;
+    /* Remove qualquer overflow:hidden do body que trava o scroll interno */
+    touch-action: pan-y;
   }
-  .app-root  { height: 100dvh !important; height: -webkit-fill-available !important; }
-  .app-main  { height: 100dvh !important; height: -webkit-fill-available !important; }
+  .app-root {
+    position: fixed;
+    inset: 0;
+    height: 100dvh;
+    height: -webkit-fill-available;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .app-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+  }
 
-  /* ── 1. CONV-SIDEBAR — drawer overlay ─────────────────────────────────── */
+  /* ── 1. CONV-SIDEBAR — drawer overlay a partir da esquerda ──────────── */
   .conv-sidebar {
     display: flex !important;
     position: fixed !important;
     top: 0 !important; bottom: 0 !important; left: 0 !important;
     width: min(280px, 85vw) !important;
     min-width: unset !important;
-    z-index: 300;
+    z-index: 500;
     opacity: 1 !important;
     pointer-events: none;
     transform: translateX(-100%);
     transition: transform .28s cubic-bezier(.4,0,.2,1) !important;
-    box-shadow: 6px 0 32px rgba(0,0,0,.55);
+    box-shadow: 6px 0 32px rgba(0,0,0,.6);
   }
   .conv-sidebar:not(.collapsed) {
     transform: translateX(0) !important;
@@ -2206,60 +2232,64 @@ body.resizing .resize-handle::after {
     pointer-events: none !important;
   }
 
-  /* ── 2. BACKDROP ─────────────────────────────────────────────────────── */
+  /* ── 2. BACKDROP — escurece ao abrir qualquer sheet ─────────────────── */
   .conv-backdrop {
     display: block;
     position: fixed; inset: 0;
-    background: rgba(0,0,0,.52);
+    background: rgba(0,0,0,.55);
     backdrop-filter: blur(2px);
     -webkit-backdrop-filter: blur(2px);
-    z-index: 299;
+    z-index: 490;
     opacity: 0; pointer-events: none;
-    transition: opacity .28s ease;
+    transition: opacity .25s ease;
   }
   .conv-sidebar:not(.collapsed) ~ .conv-backdrop {
     opacity: 1; pointer-events: all;
   }
 
-  /* ── 3. TOPBAR — grid 2 rows ──────────────────────────────────────────── */
+  /* ── 3. TOPBAR — 1 linha, 52px, tudo em ícones ──────────────────────── */
   .topbar {
-    /* Desliga altura fixa */
-    height: auto !important;
-    min-height: unset !important;
-    /* Grid: row 1 = 46px (título), row 2 = 40px (controles) */
-    display: grid !important;
-    grid-template-rows: 46px 40px;
-    grid-template-columns: 1fr;
-    padding: 0 !important;
-    gap: 0;
-    align-items: stretch;
+    height: 52px !important;
+    min-height: 52px !important;
+    max-height: 52px !important;
+    display: flex !important;
+    align-items: center !important;
+    padding: 0 8px !important;
+    gap: 6px !important;
+    overflow: visible !important;
+    flex-wrap: nowrap !important;
+    flex-shrink: 0;
   }
 
-  /* Row 1 — ocupa toda a coluna */
+  /* Esconde TUDO do topbar desktop */
+  .topbar-controls    { display: none !important; }
+  .topbar::before     { width: 2px; }
+
+  /* Linha 1 do topbar — ocupa tudo */
   .topbar-left {
-    grid-row: 1;
-    grid-column: 1;
     display: flex !important;
-    align-items: center;
-    padding: 0 12px 0 8px;
-    gap: 8px;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg2);
-    overflow: hidden;
+    align-items: center !important;
+    gap: 6px !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+    height: 100% !important;
+    padding: 0 !important;
   }
+
+  /* Título mobile */
   .topbar-mobile-title {
     display: flex;
     align-items: center;
-    gap: 6px;
-    font-size: 13px;
+    gap: 7px;
+    font-size: 14px;
     font-weight: 600;
     color: var(--text);
     letter-spacing: .02em;
     flex: 1;
     min-width: 0;
-    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .topbar-mobile-dot {
     display: inline-block;
@@ -2271,107 +2301,302 @@ body.resizing .resize-handle::after {
     flex-shrink: 0;
   }
 
-  /* Row 2 — faixa de controles com scroll horizontal */
-  .topbar-controls {
-    grid-row: 2;
-    grid-column: 1;
+  /* Botões de ação mobile na topbar (direita) */
+  .btn-mobile-key,
+  .btn-mobile-settings,
+  .btn-mobile-files {
     display: flex !important;
-    align-items: center;
-    flex-wrap: nowrap;
-    gap: 6px;
-    padding: 0 8px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    background: var(--bg3);
-    border-bottom: 1px solid var(--border);
+    width: 34px; height: 34px;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
   }
-  .topbar-controls::-webkit-scrollbar { display: none; }
 
-  /* Esconde desnecessários */
-  .ctrl-label          { display: none !important; }
-  .brand-ver           { display: none !important; }
+  /* Status pill compacto */
+  .status-pill {
+    padding: 2px 7px !important;
+    font-size: 10px !important;
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+  }
+
+  /* Esconde o botão explorador desktop */
   .btn-explorer-toggle { display: none !important; }
 
-  /* Selects compactos */
-  .select-wrap select {
-    font-size: 11px !important;
-    padding: 2px 18px 2px 7px !important;
-    min-width: unset !important;
-    height: 28px !important;
+  /* ── 4. CREDS BAR desktop — sempre oculta no mobile ─────────────────── */
+  .creds-bar { display: none !important; }
+
+  /* ── 5. LAYOUT PRINCIPAL ──────────────────────────────────────────────── */
+  .main-layout  { flex-direction: column; flex: 1; min-height: 0; }
+  .sidebar      { display: none !important; }  /* substituído por bottom sheet */
+  .editor-panel { display: none !important; }  /* substituído por bottom sheet */
+  .center-col   { width: 100% !important; flex: 1; min-width: unset !important; min-height: 0; display: flex; flex-direction: column; }
+
+  /* ── 6. CHAT AREA ─────────────────────────────────────────────────────── */
+  .chat-area {
+    flex: 1;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
-  #selModelo            { min-width: 130px !important; max-width: 165px !important; }
-  .provedor-wrap select { min-width: 52px  !important; max-width: 78px  !important; }
-
-  /* Seg-ctrl compacto */
-  .seg-ctrl { padding: 2px; gap: 1px; }
-  .seg-btn  { padding: 2px 7px; font-size: 10px; height: 26px; gap: 3px; white-space: nowrap; }
-  .seg-btn svg { width: 9px; height: 9px; }
-
-  /* Botão projeto */
-  .btn-projeto {
-    padding: 2px 7px; font-size: 10px; height: 26px;
-    max-width: 90px; flex-shrink: 0; min-width: unset;
-  }
-  .btn-projeto span {
-    max-width: 55px; overflow: hidden;
-    text-overflow: ellipsis; display: inline-block; vertical-align: middle;
-  }
-
-  /* Status pill — cola à direita */
-  .status-pill {
-    position: sticky; right: 0;
-    background: var(--bg3);
-    padding: 2px 7px; font-size: 10px;
-    flex-shrink: 0; margin-left: auto;
-    box-shadow: -10px 0 14px var(--bg3);
-  }
-
-  /* ── 4. CREDS BAR ─────────────────────────────────────────────────────── */
-  .creds-bar   { padding: 8px 10px; }
-  .creds-inner { flex-direction: column; align-items: stretch; gap: 8px; }
-  .creds-field-group { width: 100%; flex-wrap: wrap; gap: 6px; }
-  .creds-input, .creds-input-url, .creds-input-name {
-    width: 100% !important; max-width: 100%; box-sizing: border-box;
-  }
-  .key-input-wrap { width: 100%; }
-  .btn-save-login { width: 100%; justify-content: center; }
-  #credsApiLink   { margin-bottom: 0; }
-  .creds-projeto  { margin-left: 0; }
-
-  /* ── 5. LAYOUT PRINCIPAL ─────────────────────────────────────────────── */
-  .main-layout  { flex-direction: column; }
-  .sidebar      { display: none !important; }
-  .editor-panel { display: none !important; }
-  .center-col   { width: 100% !important; flex: 1; min-width: unset !important; min-height: 0; }
-
-  /* ── 6. CHAT ──────────────────────────────────────────────────────────── */
   .chat-inner { padding: 0 10px; max-width: 100%; }
   .msg-bubble { max-width: 88% !important; font-size: 13.5px; }
   .tool-pill, .plan-block, .agent-section, .arquivos-card { max-width: 96% !important; }
 
-  /* ── 7. FOOTER / INPUT ────────────────────────────────────────────────── */
-  .footer    { padding: 8px 10px 12px; flex-shrink: 0; }
+  /* ── 7. FOOTER ────────────────────────────────────────────────────────── */
+  .footer {
+    flex-shrink: 0;
+    padding: 8px 10px 10px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+  }
   .input-row { gap: 6px; }
-  .msg-input { font-size: 16px; padding: 9px 12px; }
-  .btn-send, .btn-stop { width: 42px; height: 42px; flex-shrink: 0; }
-  .footer-hint  { display: none; }
-  #ctxMeterWrap { display: none !important; }
-  .refs-bar     { padding: 4px 8px 0; }
+  .msg-input {
+    font-size: 16px !important; /* previne zoom no iOS */
+    padding: 9px 12px;
+  }
+  .btn-send, .btn-stop { width: 44px; height: 44px; flex-shrink: 0; }
+  .refs-bar { padding: 4px 0 0; }
+
+  /* Footer hint simplificado — projeto + contexto visíveis */
+  .footer-hint {
+    display: flex !important;
+    font-size: 10px;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 5px;
+    opacity: .75;
+  }
+  /* Esconde apenas o texto longo de atalhos de teclado */
+  .footer-hint > span:last-child { display: none; }
+  .footer-hint kbd { display: none; }
+  #ctxMeterWrap { display: inline-flex !important; }
 
   /* ── 8. MISC ──────────────────────────────────────────────────────────── */
-  .msg-meta         { font-size: 9px; gap: 3px 4px; }
-  .toolbar-btn span { display: none; }
-  .toolbar-btn      { padding: 4px 8px; }
+  .msg-meta { font-size: 9px; gap: 3px 4px; }
 }
 
 /* ── Telas muito pequenas ≤ 400px ───────────────────────────────────────── */
 @media (max-width: 400px) {
-  .topbar { grid-template-rows: 44px 38px; }
-  .seg-btn { padding: 2px 5px; }
+  .topbar { height: 48px !important; min-height: 48px !important; max-height: 48px !important; padding: 0 6px !important; }
+  .topbar-mobile-title { font-size: 13px; }
   .msg-bubble { font-size: 13px !important; max-width: 93% !important; padding: 8px 11px; }
   .chat-inner { padding: 0 6px; }
-  .btn-send, .btn-stop { width: 38px; height: 38px; }
-  #selModelo { min-width: 110px !important; }
+  .btn-send, .btn-stop { width: 40px; height: 40px; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   BOTTOM SHEETS — componente genérico reutilizado por Settings, Files, Creds
+══════════════════════════════════════════════════════════════════════════ */
+
+/* Overlay escuro que cobre tudo */
+.mobile-sheet-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.58);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  z-index: 600;
+  align-items: flex-end;
+  justify-content: center;
+}
+.mobile-sheet-overlay.open {
+  display: flex;
+}
+
+/* O sheet em si */
+.mobile-sheet {
+  width: 100%;
+  max-width: 540px;
+  background: var(--bg2);
+  border-top: 1px solid var(--border2);
+  border-radius: 18px 18px 0 0;
+  max-height: 88dvh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  box-shadow: 0 -8px 40px rgba(0,0,0,.6);
+  animation: sheet-up .22s cubic-bezier(.4,0,.2,1);
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+@keyframes sheet-up {
+  from { transform: translateY(100%); opacity: .6; }
+  to   { transform: translateY(0);    opacity: 1;  }
+}
+
+/* Handle de drag */
+.sheet-handle {
+  width: 36px; height: 4px;
+  background: var(--border2);
+  border-radius: 99px;
+  margin: 10px auto 0;
+}
+
+/* Cabeçalho */
+.sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px 10px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--bg2);
+  z-index: 2;
+}
+.sheet-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  font-family: var(--font-mono);
+  letter-spacing: .03em;
+}
+.sheet-close {
+  width: 28px; height: 28px;
+  border: none; background: transparent;
+  border-radius: 6px;
+  color: var(--text3);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .12s, color .12s;
+}
+.sheet-close:hover { background: var(--surface); color: var(--text); }
+
+/* Corpo do sheet */
+.sheet-body { padding: 14px 16px; }
+
+/* ── SHEET: CONFIGURAÇÕES (provedor, modelo, modo, projeto) ──────────── */
+.sheet-settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.sheet-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sheet-field-label {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.sheet-field .select-wrap {
+  width: 100%;
+}
+.sheet-field .select-wrap select {
+  width: 100% !important;
+  min-width: unset !important;
+  max-width: unset !important;
+  font-size: 14px !important;
+  padding: 10px 30px 10px 12px !important;
+  height: auto !important;
+}
+.sheet-field .seg-ctrl {
+  width: 100%;
+  display: flex;
+}
+.sheet-field .seg-btn {
+  flex: 1;
+  justify-content: center;
+  padding: 8px 4px !important;
+  font-size: 12px !important;
+  height: 36px !important;
+  gap: 5px !important;
+}
+.sheet-field .seg-btn svg { width: 12px !important; height: 12px !important; }
+.sheet-field .btn-projeto {
+  width: 100%;
+  max-width: 100% !important;
+  padding: 10px 12px !important;
+  font-size: 13px !important;
+  height: auto !important;
+  justify-content: flex-start;
+}
+.sheet-sep {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+/* ── SHEET: CREDENCIAIS ──────────────────────────────────────────────── */
+.sheet-creds-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.sheet-creds-group .creds-label {
+  font-size: 10px;
+  letter-spacing: .08em;
+}
+.sheet-creds-group .creds-input,
+.sheet-creds-group .creds-input-url,
+.sheet-creds-group .creds-input-name {
+  width: 100% !important;
+  font-size: 15px !important;
+  padding: 11px 12px !important;
+  height: auto !important;
+  box-sizing: border-box;
+}
+.sheet-creds-group .key-input-wrap { width: 100%; }
+.sheet-creds-group .key-input-wrap .creds-input { padding-right: 40px !important; }
+.sheet-creds-group .btn-save-login {
+  width: 100%;
+  justify-content: center;
+  padding: 12px !important;
+  font-size: 13px !important;
+}
+.sheet-creds-group .select-wrap {
+  width: 100%;
+}
+.sheet-creds-group .select-wrap select {
+  width: 100% !important;
+  min-width: unset !important;
+  max-width: unset !important;
+  font-size: 14px !important;
+  padding: 10px 28px 10px 12px !important;
+  height: auto !important;
+}
+.sheet-creds-group .creds-field-group {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  width: 100%;
+}
+
+/* ── SHEET: ARQUIVOS ─────────────────────────────────────────────────── */
+.sheet-files-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.sheet-files-body {
+  padding: 6px 0;
+  min-height: 120px;
+}
+.sheet-files-body .sidebar-tree { flex: 1; overflow: visible; }
+.sheet-files-body .tree-item {
+  padding: 9px 14px !important;
+  font-size: 13px !important;
+}
+.sheet-files-body .tree-item-ref,
+.sheet-files-body .tree-item-entrar { display: block !important; }
+
+/* Botão de indicação de estado nas chaves */
+.btn-mobile-key.has-key  { color: var(--green);  border-color: rgba(79,193,138,.4);  background: rgba(79,193,138,.08);  }
+.btn-mobile-key.no-key   { color: var(--amber);  border-color: rgba(245,166,35,.4);  background: rgba(245,166,35,.08);  animation: pulse-amber .9s ease-in-out infinite alternate; }
+.btn-mobile-files.has-files { color: var(--blue); border-color: rgba(91,138,240,.4); background: rgba(91,138,240,.08); }
+@keyframes pulse-amber {
+  from { box-shadow: none; }
+  to   { box-shadow: 0 0 8px rgba(245,166,35,.5); }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   MOBILE CREDS SHEET — legacy (mantido para compatibilidade mas substituído)
+══════════════════════════════════════════════════════════════════════════ */
+.mobile-creds-overlay { display: none !important; }
