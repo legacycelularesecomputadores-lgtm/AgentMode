@@ -269,6 +269,7 @@ function onProvedorMudou() {
   mostrarCredsBar(provedorAtual);
   carregarModelos(provedorAtual);
   atualizarStatusAPI();
+  _dispatchProvedorHook();
 }
 
 // ── Credenciais ───────────────────────────────────────────────────────────────
@@ -1467,6 +1468,137 @@ document.getElementById("btnDeletarKey")?.addEventListener("click", () => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
+// MOBILE CREDS SHEET
+// Bottom sheet que espelha o creds-bar desktop num painel deslizante
+// ══════════════════════════════════════════════════════════════════════════════
+function _initMobileCredsSheet() {
+  const overlay  = document.getElementById("mobileCredsOverlay");
+  const sheet    = document.getElementById("mobileCredsSheet");
+  const body     = document.getElementById("mobileCredsBody");
+  const btnOpen  = document.getElementById("btnMobileKey");
+  const btnClose = document.getElementById("btnMobileCredsClose");
+  const titleEl  = document.getElementById("mobileCredsTitle");
+  const desktopBar = document.getElementById("credsBar");
+  if (!overlay || !body || !btnOpen) return;
+
+  function _abrirSheet() {
+    // Clona o conteúdo do creds-bar desktop para o sheet
+    if (desktopBar) {
+      body.innerHTML = desktopBar.querySelector(".creds-inner")?.innerHTML || "";
+      // Re-bind eventos nos clones
+      _bindSheetEvents();
+    }
+    // Atualiza título com provedor atual
+    const pName = provedorAtual.replace("local_","").toUpperCase();
+    if (titleEl) titleEl.textContent = `Configurar — ${pName}`;
+    overlay.classList.add("open");
+    document.body.style.overflow = "hidden";
+  }
+
+  function _fecharSheet() {
+    overlay.classList.remove("open");
+    document.body.style.overflow = "";
+  }
+
+  function _bindSheetEvents() {
+    // Botão salvar/conectar dentro do clone
+    body.querySelector(".btn-save-login")?.addEventListener("click", () => {
+      const isLocal = provedorAtual.startsWith("local_");
+      const keyEl = body.querySelector("#inputApiKey");
+      const urlEl = body.querySelector("#inputApiUrl");
+      const nameEl = body.querySelector("#inputKeyName");
+      const key  = keyEl?.value.trim() || "";
+      const url  = urlEl?.value.trim() || "";
+      const nome = nameEl?.value.trim() || "";
+
+      if (isLocal) {
+        if (!url) { addAviso("⚠ Informe a URL do servidor local."); return; }
+        lsSet(`url_${provedorAtual}`, url);
+        addAviso(`✓ URL salva: ${url}`);
+        _fecharSheet();
+        atualizarStatusAPI(); _atualizarBtnMobileKey();
+        carregarModelosLocal(provedorAtual);
+        return;
+      }
+      if (!key) { addAviso("⚠ Cole a API Key antes de salvar."); return; }
+      if (nome) {
+        salvarChaveNomeada(provedorAtual, nome, key, url);
+        addAviso(`✓ Chave "${nome}" salva`);
+      } else {
+        lsSet(`key_${provedorAtual}`, key);
+        if (url) lsSet(`url_${provedorAtual}`, url);
+        addAviso("✓ Chave salva");
+      }
+      _fecharSheet();
+      atualizarStatusAPI(); _atualizarBtnMobileKey();
+      renderChavesSalvas(provedorAtual);
+      carregarModelosDaAPI(provedorAtual);
+    });
+
+    // Botão olho (mostrar/ocultar key)
+    body.querySelector(".btn-eye")?.addEventListener("click", () => {
+      const inp = body.querySelector("#inputApiKey");
+      if (inp) inp.type = inp.type === "text" ? "password" : "text";
+    });
+
+    // Select de chaves salvas
+    body.querySelector("#selSavedKey")?.addEventListener("change", (e) => {
+      const nome = e.target.value;
+      const item = getChavesNomeadas(provedorAtual).find(k => k.nome === nome);
+      if (!item) return;
+      const keyEl = body.querySelector("#inputApiKey");
+      const urlEl = body.querySelector("#inputApiUrl");
+      if (keyEl) keyEl.value = item.key;
+      if (item.url && urlEl) urlEl.value = item.url;
+      lsSet(`key_${provedorAtual}`, item.key);
+      if (item.url) lsSet(`url_${provedorAtual}`, item.url);
+      addAviso(`✓ Chave "${nome}" carregada`);
+      _fecharSheet();
+      atualizarStatusAPI(); _atualizarBtnMobileKey();
+      carregarModelosDaAPI(provedorAtual);
+    });
+
+    // Botão deletar chave
+    body.querySelector("#btnDeletarKey")?.addEventListener("click", () => {
+      const sel = body.querySelector("#selSavedKey");
+      if (!sel?.value) return;
+      const lista = getChavesNomeadas(provedorAtual).filter(k => k.nome !== sel.value);
+      _store.setItem(`agente_dev_named_keys_${provedorAtual}`, JSON.stringify(lista));
+      addAviso("✓ Chave removida");
+      _fecharSheet(); setTimeout(_abrirSheet, 150);
+    });
+  }
+
+  function _atualizarBtnMobileKey() {
+    if (!btnOpen) return;
+    const isLocal = provedorAtual.startsWith("local_");
+    const temCred = isLocal
+      ? !!(lsGet(`url_${provedorAtual}`) || URLS_DEFAULT_LOCAL[provedorAtual])
+      : !!lsGet(`key_${provedorAtual}`);
+    btnOpen.classList.toggle("has-key", temCred);
+    btnOpen.classList.toggle("no-key",  !temCred);
+  }
+
+  btnOpen?.addEventListener("click", _abrirSheet);
+  btnClose?.addEventListener("click", _fecharSheet);
+  overlay?.addEventListener("click", e => { if (e.target === overlay) _fecharSheet(); });
+
+  // Atualiza indicador sempre que provedor muda
+  const _origOnProvMudou = window._onProvedorMudouHook;
+  window._onProvedorMudouHook = () => {
+    _atualizarBtnMobileKey();
+    _origOnProvMudou?.();
+  };
+
+  _atualizarBtnMobileKey();
+}
+
+// Hook chamado pelo onProvedorMudou para atualizar o botão mobile
+function _dispatchProvedorHook() {
+  window._onProvedorMudouHook?.();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════════════════════════════════════
 document.addEventListener("DOMContentLoaded", () => {
@@ -1482,6 +1614,7 @@ document.addEventListener("DOMContentLoaded", () => {
   _registrarBotoesTipo();   // ← local / nuvem toggle
   initProvedor();
   setStatus("pronto", "pronto");
+  _initMobileCredsSheet();  // ← bottom sheet de credenciais
   setModoAgente(lsGet("modo_agente") || "agente");
 
   const pnEl = document.getElementById("projetoNome");
